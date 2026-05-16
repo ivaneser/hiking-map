@@ -797,6 +797,7 @@
 	  attraction: { label: "Attractions", color: "#EC4899" }, // pink
 	  firepit:    { label: "Firepits",    color: "#F97316" }, // orange
 	  picnic:     { label: "Picnic",      color: "#F59E0B" }, // amber
+	  camping:    { label: "Camping",     color: "#2E8B57" }, // forest green
 	  shelter:    { label: "Shelter",     color: "#A3A3A3" }, // gray
 	  water:      { label: "Water",       color: "#06B6D4" }, // cyan
 	  cave:       { label: "Caves",       color: "#7C3AED" }, // purple
@@ -1124,6 +1125,7 @@
       if (tags.tourism === "viewpoint") return "viewpoint";
       if (tags.tourism === "attraction") return "attraction";
 	  if (tags.tourism === "picnic_site") return "picnic";
+	  if (tags.tourism === "camp_site") return "camping";
       if (tags.leisure === "firepit") return "firepit";
       if (tags.natural === "cave_entrance") return "cave";
       if (tags.tourism === "wilderness_hut") return "hut";
@@ -1186,6 +1188,7 @@
           nwr["leisure"="firepit"](${bbox});
           nwr["natural"="cave_entrance"](${bbox});
           nwr["tourism"="wilderness_hut"](${bbox});
+		  nwr["tourism"="camp_site"](${bbox});
 		  nwr["amenity"="shelter"](${bbox});
 		  nwr["amenity"="toilets"](${bbox});
 		  nwr["amenity"="drinking_water"](${bbox});
