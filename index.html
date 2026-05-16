@@ -1,0 +1,1888 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hiking Loop Planner</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIINfQ2ATbYpHj4xyWmHmXdkPq2ZOi+NiyY="
+    crossorigin=""
+  >
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f2;
+      --panel: #ffffff;
+      --ink: #19201d;
+      --muted: #64706a;
+      --line: #dfe5dd;
+      --viewpoint: #2563eb;
+      --attraction: #db2777;
+      --firepit: #d97706;
+      --cave: #6d28d9;
+      --hut: #047857;
+      --shadow: 0 16px 45px rgba(30, 45, 38, 0.12);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.65fr);
+      gap: 6px;
+      height: 100%;
+      min-height: 0;
+      padding: 6px;
+    }
+
+    .map-panel,
+    .side-panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+	.map-panel {
+	  display: grid;
+	  grid-template-rows: auto 1fr;
+	  min-height: 0;
+	}
+	
+	header {
+	  display: flex;
+	  align-items: flex-start;
+	  justify-content: space-between;
+	  gap: 12px;
+
+	  flex-wrap: wrap; /* 👈 KEY FIX */
+	  padding: 16px 18px;
+	  border-bottom: 1px solid var(--line);
+	}
+
+    h1,
+    h2,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 20px;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .search-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfa;
+    }
+
+    .viewport-details {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+    }
+
+    .viewport-status,
+    .route-stats {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .route-stats {
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+	.file-button {
+	  display: inline-flex;
+	  align-items: center;
+	  justify-content: center;
+
+	  border: 1px solid var(--line);
+	  background: #fbfcfa;
+	  color: var(--ink);
+	  border-radius: 6px;
+
+	  padding: 9px 11px;
+	  font: inherit;
+	  font-size: 13px;
+	  cursor: pointer;
+
+	  line-height: 1;
+	  gap: 6px;
+	}
+	
+    button {
+      border: 1px solid var(--line);
+      background: #fbfcfa;
+      color: var(--ink);
+      border-radius: 6px;
+      padding: 9px 11px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+	button.active {
+	  background: #111827;
+	  color: white;
+	  border-color: #111827;
+	}
+	
+	.map-wrap {
+	  position: relative;
+	  min-height: 0;
+	  height: 100%;
+	  background: #eef3ea;
+	}
+
+    #map {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    .leaflet-container {
+      overflow: hidden;
+      position: relative;
+      background: #dfe8d7;
+      font-family: inherit;
+	  touch-action: auto;
+    }
+
+    .leaflet-pane,
+    .leaflet-tile,
+    .leaflet-marker-icon,
+    .leaflet-marker-shadow,
+    .leaflet-tile-container,
+    .leaflet-pane > svg,
+    .leaflet-pane > canvas,
+    .leaflet-zoom-box,
+    .leaflet-image-layer,
+    .leaflet-layer {
+      position: absolute;
+      left: 0;
+      top: 0;
+    }
+
+    .leaflet-pane {
+      z-index: 400;
+    }
+
+    .leaflet-tile-pane {
+      z-index: 200;
+    }
+
+    .leaflet-overlay-pane {
+      z-index: 400;
+    }
+
+    .leaflet-shadow-pane {
+      z-index: 500;
+    }
+
+    .leaflet-marker-pane {
+      z-index: 600;
+    }
+
+	.leaflet-tooltip {
+	  max-width: 320px;
+	  white-space: normal;
+	  pointer-events: none;
+	  background: #ffffff !important;
+	  color: #111827 !important;
+	  border: 1px solid rgba(0,0,0,0.12);
+	  box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+	  opacity: 1 !important;
+	  padding: 8px 10px;
+	  border-radius: 8px;
+	  font-size: 12px;
+	  line-height: 1.3;
+	}
+	
+    .leaflet-tooltip-pane {
+      z-index: 650;
+    }
+
+    .leaflet-popup-pane {
+      z-index: 700;
+    }
+
+    .leaflet-map-pane canvas,
+    .leaflet-map-pane svg {
+      z-index: 100;
+    }
+
+    .leaflet-control {
+      position: relative;
+      z-index: 800;
+      pointer-events: auto;
+      float: left;
+      clear: both;
+    }
+
+    .leaflet-top,
+    .leaflet-bottom {
+      position: absolute;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .leaflet-top {
+      top: 0;
+    }
+
+    .leaflet-right {
+      right: 0;
+    }
+
+    .leaflet-bottom {
+      bottom: 0;
+    }
+
+    .leaflet-left {
+      left: 0;
+    }
+
+    .leaflet-control-zoom {
+      margin: 12px;
+      border: 1px solid rgba(25, 32, 29, 0.2);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 4px 14px rgba(25, 32, 29, 0.16);
+    }
+
+    .leaflet-control-zoom a {
+      display: block;
+      width: 30px;
+      height: 30px;
+      color: var(--ink);
+      line-height: 29px;
+      text-align: center;
+      text-decoration: none;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .leaflet-control-zoom a + a {
+      border-top: 1px solid var(--line);
+    }
+
+    .leaflet-control-attribution {
+      margin: 0;
+      padding: 4px 7px;
+      background: rgba(255, 255, 255, 0.86);
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .leaflet-control-attribution a {
+      color: var(--ink);
+    }
+
+    .leaflet-tile {
+      width: 256px;
+      height: 256px;
+      user-select: none;
+      border: 0;
+    }
+
+    .leaflet-marker-icon {
+      display: block;
+    }
+
+	.leaflet-popup-close-button {
+	  position: absolute !important;
+	  top: 0px !important;
+	  right: 0px !important;
+	  left: auto !important;
+	  bottom: auto !important;
+	}
+
+    .spot-marker {
+      width: 18px;
+      height: 18px;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 3px 10px rgba(25, 32, 29, 0.28);
+    }
+
+    .spot-marker.selected {
+      width: 24px;
+      height: 24px;
+      border-width: 4px;
+    }
+
+    .spot-marker.route-stop {
+      outline: 3px solid #111827;
+      outline-offset: 2px;
+      position: relative;
+    }
+	
+	.spot-marker.custom-point {
+	  border: 3px dashed #111827;
+	  opacity: 0.9;
+	}
+	
+    .route-stop-badge {
+      position: absolute;
+      right: -10px;
+      top: -12px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      border-radius: 999px;
+      background: #111827;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 18px;
+      text-align: center;
+    }
+
+    .route-line {
+      filter: drop-shadow(0 2px 5px rgba(25, 32, 29, 0.28));
+    }
+
+    /*.leaflet-popup-content-wrapper {
+	  pointer-events: none;
+      border-radius: 8px;
+    }
+
+    .leaflet-popup-content {
+      margin: 11px 13px;
+      font: 13px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }*/
+	
+	.leaflet-popup-content-wrapper {
+	  border-radius: 12px;
+	  background: #fff !important;
+	  box-shadow: 0 14px 45px rgba(0,0,0,0.18);
+	}
+
+	.leaflet-popup-content {
+	  margin: 14px 16px;
+	  font-size: 13px;
+	  line-height: 1.4;
+	}
+
+    .empty-state {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: var(--muted);
+      text-align: center;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    .side-panel {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      min-height: 0;
+    }
+
+	.stats {
+	  display: flex;
+	  flex-wrap: wrap;
+	  gap: 3px;
+	  padding: 6px;
+	  border-bottom: 1px solid var(--line);
+	  align-items: center;
+	}
+	
+	.stat {
+	  display: flex;
+	  align-items: center;
+	  gap: 3px;
+	  padding: 4px 4px;
+	  border-radius: 999px;
+	  border: 1px solid var(--line);
+	  width: auto;
+	  flex: 0 0 auto;
+	  cursor: pointer;
+	}
+	
+	/*.stat {
+	  border: 2px solid var(--line);
+	  border-radius: 8px;
+	  padding: 12px;
+	  background: #fbfcfa;
+	  transition:
+	    transform 0.15s ease,
+	    background 0.15s ease,
+	    border-color 0.15s ease;
+	  cursor: pointer;
+	}*/
+
+	.stat:hover {
+	  transform: translateY(-1px);
+	}
+
+	.stat strong {
+	  display: block;
+	  font-size: 24px;
+	  line-height: 1;
+	  margin-bottom: 5px;
+	}
+
+	.stat span {
+	  color: var(--muted);
+	  font-size: 12px;
+	}
+
+	.stat strong {
+	  display: flex;
+	  align-items: center;
+	  line-height: 1;
+	  margin: 0;
+	}
+	
+	.stat.active {
+	  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.08);
+	}
+	
+    .filters {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .search {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 11px;
+      font: inherit;
+      font-size: 14px;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .list {
+      overflow: auto;
+      padding: 10px;
+    }
+
+    .spot {
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      padding: 12px;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .spot:hover,
+    .spot.selected {
+      background: #f2f5ef;
+      border-color: var(--line);
+    }
+
+    .spot h2 {
+      font-size: 15px;
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }
+
+    .meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 7px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .tagline {
+      margin-top: 8px;
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 11px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .tooltip {
+      position: fixed;
+      z-index: 10;
+      max-width: 280px;
+      padding: 10px 11px;
+      border-radius: 8px;
+      background: rgba(25, 32, 29, 0.92);
+      color: #fff;
+      font-size: 12px;
+      line-height: 1.4;
+      pointer-events: none;
+      transform: translate(12px, 12px);
+      opacity: 0;
+      transition: opacity 120ms ease;
+    }
+	
+    @media (max-width: 920px) {
+      body {
+        height: auto;
+        min-height: 100vh;
+        overflow: auto;
+      }
+
+      main {
+        grid-template-columns: 1fr;
+        height: auto;
+        min-height: 100vh;
+      }
+
+      .map-panel,
+      .side-panel {
+        min-height: auto;
+      }
+
+      .map-wrap,
+      #map {
+        height: 420px;
+      }
+    }
+
+	.icon-button {
+	  width: 42px;
+	  height: 42px;
+
+	  display: flex;
+	  align-items: center;
+	  justify-content: center;
+
+	  border-radius: 999px;
+	  border: 1px solid var(--line);
+
+	  background: #fff;
+
+	  cursor: pointer;
+
+	  font-size: 18px;
+
+	  box-shadow:
+	    0 4px 12px rgba(25,32,29,0.12);
+
+	  transition:
+	    transform 0.15s ease,
+	    background 0.15s ease;
+	}
+
+	.icon-button:hover {
+	  transform: translateY(-1px);
+	  background: #f7f7f7;
+	}
+
+	.icon-button input {
+	  display: none;
+	}
+
+	.floating-controls {
+	  position: absolute;
+
+	  top: 12px;
+	  right: 12px;
+
+	  z-index: 1200;
+
+	  display: flex;
+	  flex-direction: row;
+	  gap: 4px;
+	}
+
+	.circle-map-button {
+	  width: 46px;
+	  height: 46px;
+
+	  border-radius: 999px;
+
+	  display: flex;
+	  align-items: center;
+	  justify-content: center;
+
+	  border: 1px solid rgba(25,32,29,0.18);
+
+	  background: rgba(255,255,255,0.96);
+
+	  backdrop-filter: blur(6px);
+
+	  box-shadow:
+	    0 4px 14px rgba(25,32,29,0.16);
+
+	  font-size: 18px;
+	  font-weight: 700;
+
+	  padding: 0;
+
+	  cursor: pointer;
+	}
+	
+	.circle-map-button.loading {
+	  background: #dc2626;
+	  color: white;
+	  border-color: #dc2626;
+
+	  animation: pulse-search 1s infinite;
+	}
+
+	@keyframes pulse-search {
+	  0% {
+	    transform: scale(1);
+	  }
+
+	  50% {
+	    transform: scale(1.06);
+	  }
+
+	  100% {
+	    transform: scale(1);
+	  }
+	}
+	
+	.circle-map-button:hover {
+	  transform: translateY(-1px);
+	}
+
+	.circle-map-button.active {
+	  background: #111827;
+	  color: white;
+	  border-color: #111827;
+	}
+	
+	#stats {
+	  display: flex;
+	  flex-wrap: wrap;
+	  gap: 4px;
+	  align-items: center;
+	  justify-content: center;
+	}
+	
+	#routeButton,
+	#gpxButton
+	 {
+	  display: none;
+	}
+	
+    @media (max-width: 560px) {
+      main {
+        padding: 2px;
+      }
+
+      header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+	  
+      .actions {
+        justify-content: flex-start;
+      }
+
+      .stats {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="map-panel" aria-label="Map panel">
+      <header>
+          <h1>Hiking Loop Planner</h1>
+          <p class="subtitle" id="summary">Move the map, then search the visible area</p>
+    </header>
+    <div class="map-wrap">
+        <div id="map" role="img" aria-label="Hiking spots on OpenStreetMap"></div>
+	    <div class="floating-controls">
+  	      <button id="gpxButton" class="icon-button" type="button" title="Save route">
+  	        💾
+  	      </button>
+	      <label class="icon-button" title="Load route">
+	        📂
+	        <input id="gpxInput" type="file" accept=".gpx,application/gpx+xml">
+	      </label>		 	
+		  <button id="locateButton" class="circle-map-button" type="button" title="My location">
+		  📍
+		  </button>	
+	      <button id="routeButton" class="circle-map-button" type="button" title="Build route">
+	        🥾
+	      </button>
+	      <button id="searchButton" class="circle-map-button" type="button" title="Search">
+	        🔍
+	      </button>
+	    </div>
+        <div class="empty-state" id="emptyState">No data loaded yet.</div>
+    </div>
+  </section>
+
+    <aside class="side-panel" aria-label="Spot list and filters">
+      <div class="stats" id="stats"></div>
+      <div class="filters">
+        <input class="search" id="searchInput" type="search" placeholder="Search name, type, or tags">
+      </div>
+      <div class="list" id="list"></div>
+    </aside>
+  </main>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script>
+    const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+    const OPENROUTESERVICE_URL = "https://api.openrouteservice.org/v2/directions/foot-hiking/geojson";
+    const OPENROUTESERVICE_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImM2NmI0MDRiNDA2YTQwMDk4MDY0MTExNjc1MzgxNDU4IiwiaCI6Im11cm11cjY0In0=";
+
+    /*const typeConfig = {
+      viewpoint: { label: "Viewpoints", color: "#475569" },
+      attraction: { label: "Attractions", color: "#db2777" },
+      firepit: { label: "Firepits", color: "#d97706" },
+	  picnic: { label: "Picnic", color: "#d97706" },
+	  shelter: { label: "Shelter", color: "#d97706" },
+	  water: { label: "Water", color: "#d97706" },
+      cave: { label: "Caves", color: "#6d28d9" },
+      hut: { label: "Huts", color: "#047857" },
+	  parking: { label: "Parking", color: "#2563eb" },
+	  wc: { label: "WC", color: "#2563eb" },
+	  historic: { label: "Historic", color: "#0000ff" },
+      other: { label: "Other", color: "#ffffff" }
+    };*/
+	const typeConfig = {
+	  viewpoint:  { label: "Viewpoints",  color: "#22C55E" }, // vivid green
+	  attraction: { label: "Attractions", color: "#EC4899" }, // pink
+	  firepit:    { label: "Firepits",    color: "#F97316" }, // orange
+	  picnic:     { label: "Picnic",      color: "#F59E0B" }, // amber
+	  shelter:    { label: "Shelter",     color: "#A3A3A3" }, // gray
+	  water:      { label: "Water",       color: "#06B6D4" }, // cyan
+	  cave:       { label: "Caves",       color: "#7C3AED" }, // purple
+	  hut:        { label: "Huts",        color: "#16A34A" }, // green
+	  parking:    { label: "Parking",     color: "#2563EB" }, // strong blue
+	  wc:         { label: "WC",          color: "#0EA5E9" }, // light blue
+	  historic:   { label: "Historic",    color: "#B45309" }, // brown/bronze
+	  other:      { label: "Other",       color: "#64748B" }  // slate
+	};
+		
+	const state = {
+	  all: [],
+	  filtered: [],
+	  activeTypes: new Set(Object.keys(typeConfig)),
+	  selectedId: null,
+	  markers: new Map(),
+	  routeLine: null,
+	  routeStops: [],
+	  routeSummary: null,
+	  routeSelectionMode: false,
+      routeBuilt: false
+	};
+
+	const SEARCH_ZOOM = 13;
+	let userLocationMarker = null;
+	let userAccuracyCircle = null;
+
+    const list = document.querySelector("#list");
+    const stats = document.querySelector("#stats");
+    const summary = document.querySelector("#summary");
+    const emptyState = document.querySelector("#emptyState");
+    const searchInput = document.querySelector("#searchInput");
+    const searchButton = document.querySelector("#searchButton");
+    const routeButton = document.querySelector("#routeButton");
+	const leafletMap = L.map("map", {
+	  zoomControl: true,
+	  scrollWheelZoom: true,
+	  doubleClickZoom: true
+	}).setView([60.1699, 24.9384], SEARCH_ZOOM); // Helsinki
+    const markerLayer = L.layerGroup().addTo(leafletMap);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(leafletMap);
+		
+    //document.querySelector("#fitButton").addEventListener("click", fitMapToFiltered);
+    routeButton.addEventListener("click", buildFootLoop);
+	searchButton.addEventListener("click", async () => {
+
+	  const zoom = leafletMap.getZoom();
+
+	  // zoom in first if too far away
+	  if (zoom < SEARCH_ZOOM) {
+
+	    searchButton.classList.add("loading");
+
+	    leafletMap.flyTo(
+	      leafletMap.getCenter(),
+	      SEARCH_ZOOM
+	    );
+
+	    leafletMap.once("moveend", async () => {
+	      await searchOverpass();
+	    });
+
+	    return;
+	  }
+
+	  searchButton.classList.add("loading");
+
+	  await searchOverpass();
+	});
+	
+    /*document.querySelector("#fileInput").addEventListener("change", async (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      loadData(JSON.parse(await file.text()), file.name);
+    });*/
+    
+	searchInput.addEventListener("input", () => {
+      //clearRouteSelection();
+      applyFilters();
+    });
+    window.addEventListener("resize", () => {
+      leafletMap.invalidateSize();
+      fitMapToFiltered();
+    });
+	
+  	document
+      .querySelector("#locateButton")
+      .addEventListener("click", locateUser);
+	
+	document.querySelector("#gpxButton").addEventListener("click", () => {
+	  if (!state.routeLine) {
+	    alert("No route to export yet");
+	    return;
+	  }
+
+	  const gpx = generateGPX(state.routeLine);
+	  downloadGPX(gpx);
+	});
+	document.querySelector("#gpxInput").addEventListener("change", async (event) => {
+	  const file = event.target.files[0];
+	  if (!file) return;
+
+	  const text = await file.text();
+	  const coords = parseGPX(text);
+
+	  loadGPXRoute(coords);
+	});
+	
+	function distanceMeters(a, b) {
+	  const R = 6371000;
+	  const dLat = (b.lat - a.lat) * Math.PI / 180;
+	  const dLon = (b.lon - a.lon) * Math.PI / 180;
+
+	  const lat1 = a.lat * Math.PI / 180;
+	  const lat2 = b.lat * Math.PI / 180;
+
+	  const x =
+	    Math.sin(dLat / 2) ** 2 +
+	    Math.sin(dLon / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
+
+	  return 2 * R * Math.asin(Math.sqrt(x));
+	}
+	
+	leafletMap.on("click", (e) => {
+
+	  if (!state.routeSelectionMode) return;
+
+	  const lat = e.latlng.lat;
+	  const lon = e.latlng.lng;   // IMPORTANT: Leaflet uses lng, your app uses lon
+
+	  // optional: avoid duplicates near existing spots
+	  const latDelta = 100 / 111320;
+	  const lonDelta = 100 / (111320 * Math.cos(lat * Math.PI / 180));
+
+	  const candidates = state.all.filter(s =>
+	    Math.abs(s.lat - lat) < latDelta &&
+	    Math.abs(s.lon - lon) < lonDelta
+	  );
+
+	  const existing = candidates.find(s =>
+	    distanceMeters({ lat, lon }, s) < 100
+	  );
+
+	  if (existing) {
+	    toggleRouteStop(existing.id);
+	    return;
+	  }
+
+	  // create synthetic point
+	  const synthetic = {
+		id: `custom-${Date.now()}`,
+		name: "My point",
+		osmType: "custom",
+		type: "other",
+		lat,
+		lon,
+		tags: {}
+	  };
+
+	  // store it globally so it behaves like normal spot
+	  state.all.push(synthetic);
+	  state.filtered.push(synthetic);
+	  
+	  // immediately add to route
+	  state.routeStops.push(synthetic.id);
+	  state.selectedId = synthetic.id;
+
+	  render();
+
+	  summary.textContent =
+	    `${state.routeStops.length} route stop(s) selected (including custom points).`;
+	});
+	
+    function getCoordinates(item) {
+      if (typeof item.lat === "number" && typeof item.lon === "number") {
+        return { lat: item.lat, lon: item.lon };
+      }
+      if (item.center && typeof item.center.lat === "number" && typeof item.center.lon === "number") {
+        return { lat: item.center.lat, lon: item.center.lon };
+      }
+      return null;
+    }
+	
+	function parseGPX(text) {
+	  const parser = new DOMParser();
+	  const xml = parser.parseFromString(text, "application/xml");
+
+	  const trkpts = xml.querySelectorAll("trkpt");
+
+	  const coords = [];
+
+	  trkpts.forEach(pt => {
+	    const lat = parseFloat(pt.getAttribute("lat"));
+	    const lon = parseFloat(pt.getAttribute("lon"));
+
+	    if (!isNaN(lat) && !isNaN(lon)) {
+	      coords.push([lat, lon]);
+	    }
+	  });
+
+	  return coords;
+	}
+	
+	function locateUser() {
+
+	  if (!navigator.geolocation) {
+	    alert("Geolocation is not supported");
+	    return;
+	  }
+
+	  navigator.geolocation.getCurrentPosition(
+
+	    (position) => {
+
+	      const lat = position.coords.latitude;
+	      const lon = position.coords.longitude;
+	      const accuracy = position.coords.accuracy;
+
+	      // remove old marker
+	      if (userLocationMarker) {
+	        leafletMap.removeLayer(userLocationMarker);
+	      }
+
+	      if (userAccuracyCircle) {
+	        leafletMap.removeLayer(userAccuracyCircle);
+	      }
+
+	      // blue dot
+	      userLocationMarker = L.circleMarker([lat, lon], {
+	        radius: 8,
+	        fillColor: "#2563eb",
+	        color: "#fff",
+	        weight: 3,
+	        opacity: 1,
+	        fillOpacity: 1
+	      }).addTo(leafletMap);
+
+	      // accuracy radius
+	      userAccuracyCircle = L.circle([lat, lon], {
+	        radius: accuracy,
+	        color: "#2563eb",
+	        weight: 1,
+	        fillColor: "#2563eb",
+	        fillOpacity: 0.15
+	      }).addTo(leafletMap);
+
+	      userLocationMarker.bindTooltip("Your location", {
+	        direction: "top",
+	        offset: [0, -10]
+	      });
+
+	      leafletMap.flyTo([lat, lon], 14);
+	    },
+
+	    (error) => {
+	      alert(error.message || "Could not get location");
+	    },
+
+	    {
+	      enableHighAccuracy: true,
+	      timeout: 10000,
+	      maximumAge: 30000
+	    }
+	  );
+	}
+	
+	function loadGPXRoute(coords) {
+	  if (!coords.length) return;
+
+	  // clear existing route
+	  clearRoute();
+
+	  // set route stops (best effort: just endpoints + simplification)
+	  state.routeStops = [];
+
+	  const first = coords[0];
+	  const last = coords[coords.length - 1];
+
+	  // find nearest known spots (optional enhancement)
+	  function findSpot(lat, lon) {
+	    return state.all.find(s =>
+	      Math.abs(s.lat - lat) < 0.0005 &&
+	      Math.abs(s.lon - lon) < 0.0005
+	    );
+	  }
+
+	  const startSpot = findSpot(first[0], first[1]);
+	  const endSpot = findSpot(last[0], last[1]);
+
+	  if (startSpot) state.routeStops.push(startSpot.id);
+	  if (endSpot && endSpot.id !== startSpot?.id) {
+	    state.routeStops.push(endSpot.id);
+	  }
+
+	  // draw route
+	  state.routeLine = L.polyline(coords, {
+	    className: "route-line",
+	    color: "#111827",
+	    weight: 5,
+	    opacity: 0.85
+	  }).addTo(leafletMap);
+
+	  state.routeSummary = null;
+
+	  fitMapToFiltered();
+	  updateGoogleMapsButtonVisibility?.();
+
+	  summary.textContent = "Route loaded successfully";
+	  render();
+	}
+	
+	function getTimestamp() {
+	  const d = new Date();
+	  return d.toISOString()
+	    .replace(/T/, "_")
+	    .replace(/:/g, "-")
+	    .split(".")[0];
+	}
+	
+    function getSpotType(tags) {
+      if (tags.tourism === "viewpoint") return "viewpoint";
+      if (tags.tourism === "attraction") return "attraction";
+	  if (tags.tourism === "picnic_site") return "picnic";
+      if (tags.leisure === "firepit") return "firepit";
+      if (tags.natural === "cave_entrance") return "cave";
+      if (tags.tourism === "wilderness_hut") return "hut";
+	  if (tags.amenity === "parking") return "parking";
+	  if (tags.amenity === "shelter") return "shelter";
+	  if (tags.amenity === "drinking_water") return "water";
+	  if (tags.amenity === "toilets") return "wc";
+	  if (tags.historic) return "historic";
+      return "other";
+    }
+
+    function normalize(data) {
+      return (data.elements || [])
+        .map((item, index) => {
+          const coordinates = getCoordinates(item);
+          if (!coordinates) return null;
+          const tags = item.tags || {};
+          const type = getSpotType(tags);
+          return {
+            id: `${item.type}-${item.id || index}`,
+            osmType: item.type || "item",
+            name: tags.name || "No name",
+            tags,
+            type,
+            lat: coordinates.lat,
+            lon: coordinates.lon
+          };
+        })
+        .filter(Boolean);
+    }
+
+	function loadData(data, sourceName, fitMap = true) {
+	  state.all = normalize(data);
+	  updateRouteButtonVisibility();
+	  state.selectedId = state.all[0]?.id || null;
+	  //clearRouteSelection();
+	  summary.textContent =
+	    `${state.all.length} plotted objects from ${sourceName}`;
+	  applyFilters({ fitMap });
+	}
+
+    function getViewportBbox() {
+      const bounds = leafletMap.getBounds();
+      return [
+        bounds.getSouth(),
+        bounds.getWest(),
+        bounds.getNorth(),
+        bounds.getEast()
+      ];
+    }
+
+    function buildOverpassQuery(bboxValues) {
+      const bbox = bboxValues.join(",");
+      return `
+        [out:json][timeout:40];
+        (
+          nwr["tourism"="viewpoint"](${bbox});
+          nwr["tourism"="attraction"](${bbox});
+          nwr["tourism"="picnic_site"](${bbox});
+          nwr["leisure"="firepit"](${bbox});
+          nwr["natural"="cave_entrance"](${bbox});
+          nwr["tourism"="wilderness_hut"](${bbox});
+		  nwr["amenity"="shelter"](${bbox});
+		  nwr["amenity"="toilets"](${bbox});
+		  nwr["amenity"="drinking_water"](${bbox});
+		  nwr["historic"](${bbox});
+		  nwr["amenity"="parking"]["access"!="private"]["access"!="no"]["charging"!="yes"]["fee"!="yes"]["parking:condition"!="ticket"](${bbox});
+        );
+        out center tags;
+      `;
+    }
+
+	function updateRouteButtonVisibility() {
+	  routeButton.style.display =
+	    state.all.length ? "inline-block" : "none";
+	}
+	
+	function updateGpxButtonVisibility() {
+	  const btn = document.querySelector("#gpxButton");
+
+	  const routeVisible = !!state.routeLine && state.routeStops.length >= 2;
+
+	  btn.style.display = routeVisible ? "inline-block" : "none";
+	}
+
+	function updateSearchButtonState() {
+	  //const zoom = leafletMap.getZoom();
+	  //searchButton.disabled = zoom < SEARCH_ZOOM;
+	  //searchButton.textContent =
+	    //zoom < SEARCH_ZOOM ? "Zoom in" : "Search here";
+	}
+
+	leafletMap.on("zoomend moveend", updateSearchButtonState);
+	updateSearchButtonState();
+	
+    async function searchOverpass() {
+
+	  const bbox = getViewportBbox();
+
+      summary.textContent = "Searching current map viewport";
+	  searchButton.disabled = true;
+
+      try {
+        const body = new URLSearchParams({ data: buildOverpassQuery(bbox) });
+        const response = await fetch(OVERPASS_URL, {
+          method: "POST",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+          },
+          body
+        });
+        const responseText = await response.text();
+        if (!response.ok) {
+          throw new Error(`Overpass returned ${response.status}: ${responseText.slice(0, 180)}`);
+        }
+        const data = JSON.parse(responseText);
+        if (data.remark) {
+          throw new Error(data.remark);
+        }
+        loadData(data, "current map viewport", false);
+      } catch (error) {
+        state.all = [];
+		updateRouteButtonVisibility();
+        applyFilters({ fitMap: false });
+        summary.textContent = "Search failed, try again."; //error.message ||
+	  } finally {
+		  searchButton.disabled = false;
+		  searchButton.classList.remove("loading");
+		}
+    }
+
+    function applyFilters(options = {}) {
+      const shouldFitMap = options.fitMap ?? false;
+      const query = searchInput.value.trim().toLowerCase();
+      state.filtered = state.all.filter((spot) => {
+        const text = `${spot.name} ${spot.type} ${JSON.stringify(spot.tags)}`.toLowerCase();
+        return state.activeTypes.has(spot.type) && (!query || text.includes(query));
+      });
+      if (!state.filtered.some((spot) => spot.id === state.selectedId)) {
+        state.selectedId = state.filtered[0]?.id || null;
+      }
+      render();
+      leafletMap.invalidateSize();
+      if (shouldFitMap) {
+        requestAnimationFrame(fitMapToFiltered);
+      }
+    }
+
+	function renderStats() {
+
+	  const counts = state.all.reduce((acc, spot) => {
+	    acc[spot.type] = (acc[spot.type] || 0) + 1;
+	    return acc;
+	  }, {});
+
+	  const allTypes = Object.keys(typeConfig);
+
+	  stats.innerHTML = "";
+
+	  const totalActive =
+	    state.activeTypes.size === allTypes.length;
+
+	  const totalDiv = document.createElement("div");
+
+	  totalDiv.className = `stat${totalActive ? " active" : ""}`;
+	  
+	  /*totalDiv.style.display = "flex";
+	  totalDiv.style.alignItems = "center";
+	  totalDiv.style.gap = "6px";
+	  totalDiv.style.padding = "6px 10px";
+	  totalDiv.style.borderRadius = "999px";
+	  totalDiv.style.border = "1px solid var(--line)";*/
+	  //totalDiv.style.background = active ? `${config.color}22` : "#fbfcfa";
+	  //totalDiv.style.cursor = "pointer";
+
+	  totalDiv.innerHTML = `
+	    <strong>${state.filtered.length}</strong>
+	    <span style="font-size:14px;">Total</span>
+	  `;
+
+	  totalDiv.addEventListener("click", () => {
+
+	    //clearRouteSelection();
+
+	    if (totalActive) {
+	      state.activeTypes.clear();
+	    } else {
+	      state.activeTypes = new Set(allTypes);
+	    }
+
+	    applyFilters({ fitMap: true });
+	  });
+
+	  stats.append(totalDiv);
+
+	  Object.entries(typeConfig).forEach(([type, config]) => {
+
+	    const count = counts[type] || 0;
+
+	    if (!count) return;
+
+	    const active = state.activeTypes.has(type);
+
+	    const div = document.createElement("div");
+
+	    div.className = `stat${active ? " active" : ""}`;
+
+		/*div.style.display = "flex";
+		div.style.alignItems = "center";
+		div.style.gap = "6px";
+		div.style.padding = "6px 10px";
+		div.style.borderRadius = "999px";
+		div.style.border = "1px solid var(--line)";*/
+		div.style.background = active ? `${config.color}22` : "#fbfcfa";
+		//div.style.cursor = "pointer";
+
+		div.innerHTML = `
+		  <div style="
+		    width:18px;
+		    height:18px;
+		    border-radius:50%;
+		    background:${config.color};
+		    color:#fff;
+		    display:flex;
+		    align-items:center;
+		    justify-content:center;
+		    font-size:10px;
+		    font-weight:700;
+		  ">
+		    ${count}
+		  </div>
+
+		  <span style="font-size:12px; color:#64706a;">
+		    ${config.label}
+		  </span>
+		`;
+
+	    div.addEventListener("click", () => {
+
+	      //clearRouteSelection();
+
+	      if (active) {
+	        state.activeTypes.delete(type);
+	      } else {
+	        state.activeTypes.add(type);
+	      }
+
+	      applyFilters({ fitMap: false });
+	    });
+
+	    stats.append(div);
+	  });
+	}
+
+	function drawRouteFromCoords(latlngs, summary = null) {
+	  clearRoute();
+
+	  state.routeLine = L.polyline(latlngs, {
+	    className: "route-line",
+	    color: "#111827",
+	    weight: 5,
+	    opacity: 0.82
+	  }).addTo(leafletMap);
+
+	  state.routeSummary = summary || null;
+
+	  fitMapToFiltered();
+	}
+
+	function renderMap() {
+
+	  markerLayer.clearLayers();
+	  state.markers.clear();
+
+	  emptyState.style.display =
+	    state.filtered.length ? "none" : "grid";
+
+	  if (!state.filtered.length) return;
+
+  	  const visibleSpots =
+        state.routeBuilt
+          ? getRouteStopSpots()
+          : state.filtered;
+
+      visibleSpots.forEach((spot) => {
+	  //state.filtered.forEach((spot) => {
+
+		const config =
+	      typeConfig[spot.type] || typeConfig.other;
+
+	    const routeIndex =
+	      state.routeStops.indexOf(spot.id);
+
+	  	const isCustom = spot.osmType === "custom";
+
+	  	const markerClasses = [
+	      "spot-marker",
+	      isCustom ? "custom-point" : "",
+	      spot.id === state.selectedId ? "selected" : "",
+	      routeIndex >= 0 ? "route-stop" : ""
+	    ]
+	    .filter(Boolean)
+	    .join(" ");
+
+	    const icon = L.divIcon({
+	      className: "",
+	      html: `
+	        <div
+	          class="${markerClasses}"
+	          style="background:${config.color}"
+	        >
+	          ${
+	            routeIndex >= 0
+	              ? `<span class="route-stop-badge">
+	                   ${routeIndex + 1}
+	                 </span>`
+	              : ""
+	          }
+	        </div>
+	      `,
+	      iconSize:
+	        spot.id === state.selectedId
+	          ? [24, 24]
+	          : [18, 18],
+
+	      iconAnchor:
+	        spot.id === state.selectedId
+	          ? [12, 12]
+	          : [9, 9],
+
+	      popupAnchor: [0, -10]
+	    });
+
+		const title =
+		  spot.name === "No name"
+		    ? escapeHtml(spot.type)
+		    : escapeHtml(spot.name);
+
+		const subtitle =
+		  spot.name === "No name"
+		    ? ""
+		    : config.label.replace(/s$/, "");
+
+
+	    const marker = L.marker([spot.lat, spot.lon],{ icon })
+		  .bindPopup(
+		    `<strong>${title}</strong>${subtitle ? `<br>${subtitle}` : ""}<br>${spot.lat.toFixed(6)}, ${spot.lon.toFixed(6)}`,
+		    {
+		      closeButton: false
+		    }
+		  )
+	      .on("click", () => {
+
+	        if (state.routeSelectionMode) {
+	          toggleRouteStop(spot.id);
+	          return;
+	        }
+
+	        selectSpot(spot.id, {
+				scrollList: false	
+	        });
+	      })
+		  .bindTooltip(
+		    `<strong>${title}</strong>${subtitle ? `<br>${subtitle}` : ""}`,
+		    {
+		      direction: "top",
+		      offset: [0, -10],
+		      sticky: true
+		    }
+		  )
+		  
+	    marker.addTo(markerLayer);
+
+	    state.markers.set(spot.id, marker);
+	  });
+	}
+	
+    function fitMapToFiltered() {
+      const boundsItems = state.routeLine
+        ? state.routeLine.getLatLngs()
+        : state.filtered.map((spot) => [spot.lat, spot.lon]);
+      if (!boundsItems.length) return;
+      leafletMap.fitBounds(L.latLngBounds(boundsItems), {
+        padding: [34, 34],
+        maxZoom: SEARCH_ZOOM
+      });
+    }
+
+    function clearRoute() {
+      if (!state.routeLine) return;
+	  
+      state.routeLine.remove();
+      state.routeLine = null;
+      state.routeSummary = null;
+	  state.routeBuilt = false;
+	  
+	  updateGpxButtonVisibility();
+    }
+
+    function clearRouteSelection() {
+      clearRoute();
+      state.routeStops = [];
+    }
+
+    function formatRouteSummary(summaryData) {
+      if (!summaryData) return "";
+      const distanceKm = summaryData.distance / 1000;
+      const durationMinutes = Math.round(summaryData.duration / 60);
+      return `Route: ${distanceKm.toFixed(1)} km · ${durationMinutes} min`;
+    }
+
+    function getRouteStopSpots() {
+      return state.routeStops
+        .map((id) => state.all.find((spot) => spot.id === id))
+        .filter(Boolean);
+    }
+
+    function toggleRouteStop(id) {
+      clearRoute();
+      const existingIndex = state.routeStops.indexOf(id);
+      if (existingIndex >= 0) {
+        state.routeStops.splice(existingIndex, 1);
+      } else {
+        state.routeStops.push(id);
+      }
+      state.selectedId = id;
+      render();
+      //document.querySelector(".spot.selected")?.scrollIntoView({ block: "nearest" });
+      const count = state.routeStops.length;
+      summary.textContent = count
+        ? `${count} route stop${count === 1 ? "" : "s"} selected. Click the button again to build the route.`
+        : "No route stops selected. Click map markers to add stops.";
+    }
+
+    async function fetchHikingRoute(points) {
+      const response = await fetch(OPENROUTESERVICE_URL, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json, application/geo+json",
+          "Authorization": OPENROUTESERVICE_API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          coordinates: points.map((spot) => [spot.lon, spot.lat])
+        })
+      });
+      const data = await response.json();
+      if (!response.ok || !data.features?.[0]?.geometry?.coordinates) {
+        throw new Error(data.error?.message || data.message || `OpenRouteService returned ${response.status}`);
+      }
+      const feature = data.features[0];
+      return {
+        coordinates: feature.geometry.coordinates.map(([lon, lat]) => [lat, lon]),
+        summary: feature.properties?.summary || null
+      };
+    }
+
+	async function buildFootLoop() {
+
+	  // ENTER SELECTION MODE
+
+	  if (!state.routeSelectionMode) {
+		updateGpxButtonVisibility();
+
+	    clearRoute();
+
+	    state.routeStops = [];
+	    state.routeSelectionMode = true;
+		state.routeBuilt = false;
+
+	    routeButton.classList.add("active");
+	    //routeButton.textContent = "Build Route";
+
+	    summary.textContent =
+	      "Route selection mode enabled. Click your stops.";
+
+	    render();
+
+	    return;
+	  }
+
+	  // BUILD ROUTE
+
+	  const selectedStops = getRouteStopSpots();
+
+	  if (selectedStops.length < 2) {
+		updateGpxButtonVisibility();
+
+	    state.routeSelectionMode = false;
+
+	    routeButton.classList.remove("active");
+	    //routeButton.textContent = "Build Hiking Loop";
+
+	    summary.textContent = "Route selection cancelled.";
+
+	    state.routeStops = [];
+
+	    render();
+
+	    return;
+	  }
+
+	  routeButton.disabled = true;
+	  //routeButton.textContent = "Routing";
+
+	  summary.textContent =
+	    `Building hiking loop through ${selectedStops.length} selected stops`;
+
+	  try {
+
+	    clearRoute();
+
+	    const ordered = [...selectedStops, selectedStops[0]];
+
+	    const route = await fetchHikingRoute(ordered);
+
+	    state.routeSummary = route.summary;
+
+	    state.routeLine = L.polyline(route.coordinates, {
+	      className: "route-line",
+	      color: "#111827",
+	      weight: 5,
+	      opacity: 0.82
+	    }).addTo(leafletMap);
+
+	    state.routeSelectionMode = false;
+		state.routeBuilt = true;
+		render();
+		//fitMapToFiltered();
+		
+	    routeButton.classList.remove("active");
+	    //routeButton.textContent = "Build Hiking Loop";
+		updateGpxButtonVisibility();
+
+	    summary.textContent =
+	      `Hiking loop built through ${selectedStops.length} selected stops${
+	        state.routeSummary
+	          ? ` (${formatRouteSummary(state.routeSummary).replace("Route: ", "")})`
+	          : ""
+	      }`;
+
+	  } catch (error) {
+
+	    summary.textContent =
+	      error.message || "Could not build hiking loop";
+
+	  } finally {
+
+	    routeButton.disabled = false;
+
+	    if (!state.routeSelectionMode) {
+	      //routeButton.textContent = "Build Hiking Loop";
+		  updateGpxButtonVisibility();
+	    }
+	  }
+	}
+
+	function generateGPX(routeLine) {
+	  if (!routeLine) return null;
+
+	  const coords = routeLine.getLatLngs();
+
+	  const points = coords.map(p => `
+	    <trkpt lat="${p.lat}" lon="${p.lng}">
+	      <ele>0</ele>
+	    </trkpt>
+	  `).join("\n");
+
+	  return `<?xml version="1.0" encoding="UTF-8"?>
+	<gpx version="1.1" creator="Nature Spots Viewer" xmlns="http://www.topografix.com/GPX/1/1">
+	  <trk>
+	    <name>Hiking Route</name>
+	    <trkseg>
+	      ${points}
+	    </trkseg>
+	  </trk>
+	</gpx>`;
+	}
+	
+	function downloadGPX(content) {
+	  const filename = `hiking-route_${getTimestamp()}.gpx`;
+	  const blob = new Blob([content], { type: "application/gpx+xml" });
+	  const url = URL.createObjectURL(blob);
+
+	  const a = document.createElement("a");
+	  a.href = url;
+	  a.download = filename;
+	  document.body.appendChild(a);
+	  a.click();
+	  document.body.removeChild(a);
+
+	  URL.revokeObjectURL(url);
+	}
+
+	function openInAppleMaps(routeStops) {
+	  if (routeStops.length < 2) return;
+
+	  const points = routeStops.map(s => `${s.lat},${s.lon}`);
+
+	  // loop
+	  const looped = [...points, points[0]];
+
+	  const origin = looped[0];
+	  const destination = looped[looped.length - 1];
+
+	  const waypoints = looped.slice(1, -1);
+
+	  let url = `https://maps.apple.com/?saddr=${origin}&daddr=${destination}`;
+
+	  if (waypoints.length) {
+	    url += `&dirflg=w`; // walking mode
+	  }
+
+	  window.open(url, "_blank");
+	}
+	
+	function openInGoogleMaps(routeStops) {
+	  if (routeStops.length < 2) return;
+
+	  const points = routeStops.map(s => `${s.lat},${s.lon}`);
+
+	  // 🔁 close the loop by repeating first point
+	  const looped = [...points, points[0]];
+
+	  const origin = looped[0];
+	  const destination = looped[looped.length - 1];
+
+	  // middle points become waypoints (excluding first + last)
+	  const waypoints = looped.slice(1, -1).join("|");
+
+	  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=walking`;
+
+	  if (waypoints.length) {
+	    url += `&waypoints=${waypoints}`;
+	  }
+
+	  window.open(url, "_blank");
+	}
+	
+	function formatTags(tags) {
+	  const keys = ["historic", "memorial", "building", "natural", "geological", "description", "note", "parking", "time_interval", "maxstay", "seasonal", "fee", "access", "fireplace", "fuel", "inscription", "website",  "leisure", "nudism", "table", "covered", "wheelchair", "website:map"];
+	  return keys
+	    .filter(k => tags[k])
+	    .map(k => `${k}: ${tags[k]}`)
+	    .join(" | ");
+	}
+	
+	function formatAllTags(tags) {
+	  return Object.entries(tags || {})
+	    .map(([k, v]) => `${k}: ${v}`)
+	    .join("\n");
+	}
+	
+    function renderList() {
+      list.innerHTML = "";
+	  
+	  //const baseSpots =
+	  const visibleSpots =
+	    state.routeBuilt
+	      ? getRouteStopSpots()
+	      : state.filtered;
+
+	  /*const visibleSpots = [...baseSpots].sort((a, b) => {
+
+	    if (a.id === state.selectedId) return -1;
+	    if (b.id === state.selectedId) return 1;
+
+	    return 0;
+	  });*/
+  
+  	  visibleSpots.forEach((spot) => {
+      //state.filtered.forEach((spot) => {
+        const config = typeConfig[spot.type] || typeConfig.other;
+        const button = document.createElement("button");
+		const tagLine = formatTags(spot.tags);
+        button.type = "button";
+        button.className = `spot${spot.id === state.selectedId ? " selected" : ""}`;
+        button.addEventListener("click", () => selectSpot(spot.id, { scrollList: false }));
+		button.innerHTML = `
+		  <div style="display:flex; justify-content:space-between; gap:10px; align-items:start;">
+    
+		    <div style="flex:1;">
+		      <h2 style="margin:0 0 6px 0; font-size:15px;">
+		        ${escapeHtml(spot.name)}
+		      </h2>
+
+		      <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+		        <span style="
+		          font-size:11px;
+		          padding:2px 6px;
+		          border-radius:999px;
+		          background:${config.color}22;
+		          color:${config.color};
+		        ">
+		          ${config.label}
+		        </span>
+
+		        <!--span style="font-size:11px; color:#64706a;">
+		          ${spot.osmType}
+		        </span-->
+		      </div>
+
+		      <!--div style="font-size:12px; color:#64706a;">
+		        📍 ${spot.lat.toFixed(5)}, ${spot.lon.toFixed(5)}
+		      </div-->
+			  <div style="font-size:11px; color:#64706a; margin-top:6px;">
+				<!--${escapeHtml(formatAllTags(spot.tags))}-->
+				${tagLine ? `
+				  <div style="font-size:11px; color:#64706a; margin-top:6px;">
+				    ${escapeHtml(tagLine)}
+				  </div>
+				` : ""}
+			  </div>
+		    </div>
+		  </div>
+		`;
+        list.append(button);
+      });
+    }
+
+    function selectSpot(id, options = {}) {
+      const shouldScrollList = options.scrollList ?? true;
+      const shouldOpenPopup = options.openPopup ?? true;
+      state.selectedId = id;
+      render();
+      const selectedSpot = state.filtered.find((spot) => spot.id === id);
+      const selectedMarker = state.markers.get(id);
+      if (selectedSpot && selectedMarker) {
+        //const targetZoom = Math.max(leafletMap.getZoom(), 15);
+        if (shouldOpenPopup) {
+          //leafletMap.once("moveend", () => selectedMarker.openPopup());
+		  selectedMarker.openPopup();
+        }
+        //leafletMap.setView([selectedSpot.lat, selectedSpot.lon], targetZoom, { animate: true });
+      }
+      if (shouldScrollList) {
+        document.querySelector(".spot.selected")?.scrollIntoView({ block: "nearest" });
+      }
+    }
+
+
+    function render() {
+      renderStats();
+      renderMap();
+      renderList();
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+      })[char]);
+    }
+
+    applyFilters({ fitMap: false });
+  </script>
+</body>
+</html>
