@@ -66,9 +66,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set environment variables from secrets
-        env:
-          OR_API_KEY: ${{ secrets.OR_API_KEY }}
-          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          echo "OR_API_KEY=${{ secrets.OR_API_KEY }}"
         run: |
           node <<EOF
             const crypto = require('crypto');
@@ -148,9 +147,8 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ env.DEPLOY_TOKEN }}
+          github_token: ${{ github.token }}
           publish_dir: ${{ env.BUILD_DIR }}
-          force_or_source: true
 
   test:
     name: Run Tests (if e2e tests exist)
