@@ -1,0 +1,129 @@
+name: Test Before Push Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to test'
+        required: true
+        default: 'test'
+
+jobs:
+  validate:
+    name: Run Pre-Push Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Create dist directory
+        run: mkdir -p dist
+      
+      - name: Copy deployment files to dist
+        run: |
+          cp index.html dist/
+          
+          # Copy CSS if exists in root
+          if [ -f style.css ]; then
+            cp style.css dist/style.css 2>/dev/null || true
+          fi
+          
+          # Copy JS files from root (deployment structure)
+          if [ -f api-keys.js ]; then
+            cp api-keys.js dist/api-keys.js 2>/dev/null || true
+          fi
+          
+          if [ -f config.js ]; then
+            cp config.js dist/config.js 2>/dev/null || true
+          fi
+          
+          if [ -f script.js ]; then
+            cp script.js dist/script.js 2>/dev/null || true
+          fi
+          
+          if [ -f setup-api-keys.js ]; then
+            cp setup-api-keys.js dist/setup-api-keys.js 2>/dev/null || true
+          fi
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Run pre-push validation
+        run: |
+          echo "Running pre-push validation..."
+          bash .prepush-test.sh
+      
+      - name: Test HTML structure
+        run: |
+          echo "Checking HTML file structure..."
+          
+          # Check all required files exist
+          for file in index.html api-keys.js config.js script.js style.css; do
+            if [ ! -f "$file" ]; then
+              echo "ERROR: $file is missing!"
+              exit 1
+            fi
+          done
+          
+          echo "✓ All deployment files found"
+      
+      - name: Validate JavaScript syntax
+        run: |
+          echo "Checking JavaScript syntax..."
+          
+          for file in api-keys.js config.js script.js setup-api-keys.js; do
+            if [ -f "$file" ]; then
+              # Check for unmatched brackets (basic validation)
+              open_braces=$(grep -o '{' "$file" | wc -l)
+              close_braces=$(grep -o '}' "$file" | wc -l)
+              
+              if [ "$open_braces" -ne "$close_braces" ]; then
+                echo "ERROR: $file has unmatched braces!"
+                exit 1
+              fi
+            fi
+          done
+          
+          echo "✓ JavaScript syntax validated"
+
+      - name: Verify HTML script paths
+        run: |
+          echo "Verifying HTML references..."
+          
+          # Check that index.html references files correctly
+          if ! grep -q 'src="api-keys.js"' index.html; then
+            echo "ERROR: api-keys.js not found in index.html"
+            exit 1
+          fi
+          
+          if ! grep -q 'src="config.js"' index.html; then
+            echo "ERROR: config.js not found in index.html"
+            exit 1
+          fi
+          
+          if ! grep -q 'src="script.js"' index.html; then
+            echo "ERROR: script.js not found in index.html"
+            exit 1
+          fi
+          
+          echo "✓ HTML references are correct"
+      
+      - name: Check for GitHub Actions workflow
+        run: |
+          echo "Verifying GitHub Actions configuration..."
+          
+          if [ ! -f ".github/workflows/build-and-deploy.yml" ]; then
+            echo "ERROR: GitHub Actions workflow not found!"
+            exit 1
+          fi
+          
+          echo "✓ GitHub Actions workflow exists"
+      
+      - name: Complete
+        run: echo "✅ All pre-push tests passed!"
