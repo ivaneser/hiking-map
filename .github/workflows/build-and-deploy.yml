@@ -1,4 +1,4 @@
-name: Build and Deploy with Secure API Keys
+name: Build and Deploy
 
 on:
   push:
@@ -24,56 +24,54 @@ jobs:
         run: |
           echo "OR_API_KEY=${{ secrets.OR_API_KEY }}"
 
-      - name: Create build directory and config
-        run: |
-          mkdir -p ${{ env.BUILD_DIR }}/config
-          
-          cat > ${{ env.BUILD_DIR }}/config/api-keys.json <<ENDBLOCK
-          {
-            "apiKeys": {
-              "openrouteservice": "${{ secrets.OR_API_KEY }}"
-            },
-            "encryptionHint": "Use ApiKeyManager.decrypt() with your password"
-          }
-          ENDBLOCK
-          
-          echo "✓ Created build config at ${{ env.BUILD_DIR }}/config/api-keys.json"
-        shell: bash
-
-      - name: Build static assets from source files
+      - name: Build static site - copy files to ./ root level
         run: |
           mkdir -p ${{ env.BUILD_DIR }}
           
-          # Copy HTML file (use absolute path with leading /)
+          # Copy HTML with relative paths for ./hiking-map/ deployment
           cp index.html ${{ env.BUILD_DIR }}/ 2>/dev/null || true
           
-          # Copy CSS file (if exists in root)
+          # Copy CSS from root if exists
           if [ -f style.css ]; then
-            cp style.css ${{ env.BUILD_DIR }}/ 2>/dev/null || true
+            cp style.css ${{ env.BUILD_DIR }}/.style.css 2>/dev/null || true
           fi
           
-          # Copy JavaScript files from scripts/ folder
-          if [ -d scripts ]; then
-            mkdir -p ${{ env.BUILD_DIR }}/scripts
-            cp scripts/script.js ${{ env.BUILD_DIR }}/scripts/ 2>/dev/null || true
-            cp scripts/setup-api-keys.js ${{ env.BUILD_DIR }}/scripts/ 2>/dev/null || true
+          # Copy script.js (move to root level)
+          if [ -f scripts/script.js ]; then
+            cp scripts/script.js ${{ env.BUILD_DIR }}/script.js 2>/dev/null || true
+          elif [ -f script.js ]; then
+            cp script.js ${{ env.BUILD_DIR }}/script.js 2>/dev/null || true
           fi
           
-          # Copy config files from config/ folder
-          if [ -d config ]; then
-            mkdir -p ${{ env.BUILD_DIR }}/config
-            cp config/api-keys.js ${{ env.BUILD_DIR }}/config/ 2>/dev/null || true
-            cp config/index.js ${{ env.BUILD_DIR }}/config/ 2>/dev/null || true
+          # Copy setup-api-keys.js (move to root level)  
+          if [ -f scripts/setup-api-keys.js ]; then
+            cp scripts/setup-api-keys.js ${{ env.BUILD_DIR }}/setup-api-keys.js 2>/dev/null || true
+          elif [ -f config/setup-api-keys.js ]; then
+            cp config/setup-api-keys.js ${{ env.BUILD_DIR }}/setup-api-keys.js 2>/dev/null || true
           fi
           
-          # Copy docs files (if they exist)
+          # Copy api-keys.js (move to root level, change name for relative path)
+          if [ -f scripts/api-keys.js ]; then
+            cp scripts/api-keys.js ${{ env.BUILD_DIR }}/api-keys.js 2>/dev/null || true
+          elif [ -f config/api-keys.js ]; then
+            cp config/api-keys.js ${{ env.BUILD_DIR }}/api-keys.js 2>/dev/null || true
+          fi
+          
+          # Copy config/index.js -> config.js (move to root level, change name)
+          if [ -f scripts/config/index.js ]; then
+            cp scripts/config/index.js ${{ env.BUILD_DIR }}/config.js 2>/dev/null || true
+          elif [ -f config/index.js ]; then
+            cp config/index.js ${{ env.BUILD_DIR }}/config.js 2>/dev/null || true
+          fi
+          
+          # Copy docs (if exists)
           if [ -d docs ]; then
             mkdir -p ${{ env.BUILD_DIR }}/docs
             cp docs/API_KEY_SETUP.md ${{ env.BUILD_DIR }}/docs/ 2>/dev/null || true
             cp docs/SECURITY_GUIDE.md ${{ env.BUILD_DIR }}/docs/ 2>/dev/null || true
           fi
           
-          echo "✓ Built static assets to ${{ env.BUILD_DIR }}/"
+          echo "✓ All files copied to root level in ${{ env.BUILD_DIR }}/ (ready for /hiking-map/ deployment)"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
