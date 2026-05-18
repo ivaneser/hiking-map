@@ -1,65 +1,131 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Hiking Loop Planner</title>
-  
-  <!-- Core Styles -->
-  <link rel="stylesheet" href="style.css">
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIINfQ2ATbYpHj4xyWmHmXdkPq2ZOi+NiyY="
-    crossorigin=""
-  >
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#2d3748" />
+    
+    <!-- Bootstrap -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIINfQ2ATbYpHj4xyWmHmXdkPq2ZOi+NiyY=" 
+          crossorigin="" />
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Leaflet Draw for drawing tools -->
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
 
-  <!-- Security Configuration Scripts -->
-  <script type="module" src="config/api-keys.js"></script>
-  <script type="text/javascript" src="config/index.js"></script>
-</head>
-<body>
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-  ></script>
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="/style.css" />
 
-  <main>
-    <section class="map-panel" aria-label="Map panel">
-      <header>
-          <h1>Hiking Loop Planner</h1>
-          <p class="subtitle" id="summary">Move the map, then search the visible area</p>
-      </header>
-      <div class="map-wrap">
-        <div id="map" role="img" aria-label="Hiking spots on OpenStreetMap"></div>
-        <div class="floating-controls">
-          <button id="gpxButton" class="icon-button" type="button" title="Save route">💾</button>
-          <label class="icon-button" title="Load route">
-            📂
-            <input id="gpxInput" type="file" accept=".gpx,application/gpx+xml">
-          </label>
-          <button id="locateButton" class="circle-map-button" type="button" title="My location">📍</button>
-          <button id="routeButton" class="circle-map-button" type="button" title="Build route">🥾</button>
-          <button id="searchButton" class="circle-map-button" type="button" title="Search">🔍</button>
-        </div>
-        <div class="empty-state" id="emptyState">No data loaded yet.</div>
-      </div>
-    </section>
+    <!-- Security Configuration Scripts -->
+    <script type="module" src="config/api-keys.js"></script>
+    <script type="text/javascript" src="config/index.js"></script>
+  </head>
+  <body class="d-flex flex-column min-vh-100">
+    
+    <!-- Main Application Script -->
+    <script src="/scripts/script.js"></script>
+    
+    <!-- Leaflet Draw Initialization -->
+    <script>
+      // Initialize Leaflet Draw plugin when map is created
+      if (typeof window !== 'undefined') {
+        // Store original setup function to modify later
+        const originalMapSetup = typeof window.setupMaps === 'function' ? window.setupMaps : null;
+        
+        // Override map creation to enable drawing tools
+        if (originalMapSetup) {
+          window.setupMaps = function(map) {
+            // Setup draw controls for polygon creation
+            var drawnItems = new L.FeatureGroup();
+            
+            // Add draw toolbar with modified icons for better UX
+            var drawControl = new L.Control.Draw({
+              edit: {
+                featureGroup: drawnItems,
+                remove: true
+              },
+              draw: {
+                polygon: {
+                  show: true,
+                  allowIntersection: false
+                },
+                polyline: {
+                  show: false
+                },
+                circlemarker: {
+                  show: false
+                },
+                rectangle: {
+                  show: false
+                }
+              }
+            });
+            
+            // Add the draw control to the map after all other controls
+            setTimeout(() => {
+              if (map) {
+                map.addControl(drawControl);
+                
+                // Handle layer events
+                map.on('draw:created', function(e) {
+                  const layer = e.layer;
+                  
+                  if (layer.getBounds && typeof layer.getBounds === 'function') {
+                    // Polygon - calculate and store the area in m2
+                    const polygonArea = layer.get总面积(); // Total area in m2
+    
+                    // Store the created polygon with its area information
+                    layer.area_m2 = polygonArea.toFixed(2); // Area rounded to 2 decimal places
+                    layer.properties = {
+                      geometry: layer.toGeoJSON(),
+                      area_m2: polygonArea.toFixed(2)
+                    };
+                    console.log(`Created polygon with area: ${polygonArea.toFixed(2)} m2`);
+                    
+                    // Add custom icon to indicate this is a user-drawn polygon
+                    let polygonIcon = L.Icon.Default.prototype._getIconUrl();
+                    layer.setIcon(new L.DivIcon({
+                      className: 'custom-polygon',
+                      html: '<div style="background-color: transparent; border-radius: 50%; display: inline-block; width: 12px; height: 12px; background-color: #27ae60;"></div>',
+                      iconSize: [12, 12],
+                      iconAnchor: [6, 6],
+                      popupAnchor: [0, -8]
+                    }));
+                  }
+                });
+                
+                // Handle draw:deleted event (optional)
+                map.on('draw:deleted', function(e) {
+                  console.log('Polygon deleted');
+                });
+              }
+            }, 0);
+          };
+        }
+      }
+    </script>
 
-    <aside class="side-panel" aria-label="Spot list and filters">
-      <div class="stats" id="stats"></div>
-      <div class="filters">
-        <input class="search" id="searchInput" type="search" placeholder="Search name, type, or tags">
-      </div>
-      <div class="list" id="list"></div>
-    </aside>
-  </main>
+    <!-- API Key Setup - Auto-installs floating configuration button (development) -->
+    <script type="module" src="/scripts/setup-api-keys.js"></script>
+    
+    <!-- Leaflet JavaScript -->
+    <script 
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
 
-  <script src="script.js"></script>
-  
-  <!-- API Key Setup - Auto-installs floating configuration button (development) -->
-  <script type="module" src="scripts/setup-api-keys.js"></script>
-
-</body>
+  </body>
 </html>
