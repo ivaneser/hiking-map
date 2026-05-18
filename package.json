@@ -1,0 +1,14 @@
+{
+  "name": "hiking-map",
+  "version": "1.0.0",
+  "description": "A modern web application for discovering hiking trails, finding nature spots, and planning outdoor adventures using OpenStreetMap data.",
+  "main": "index.html",
+  "scripts": {
+    "test": "playwright test",
+    "e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^25.8.0"
+  }
+}
