@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="/favicon.ico" />
+    <link rel="icon" href="/hiking-map/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#2d3748" />
@@ -15,42 +15,37 @@
     
     <!-- Leaflet Map -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
-          integrity="sha256-p4NxAoJBhIINfQ2ATbYpHj4xyWmHmXdkPq2ZOi+NiyY=" 
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
           crossorigin="" />
     
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
+
     <!-- Leaflet Draw for drawing tools -->
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
 
     <!-- Custom Styles -->
-    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="./style.css" />
 
-    <!-- Security Configuration Scripts -->
-    <script type="module" src="config/api-keys.js"></script>
-    <script type="text/javascript" src="config/index.js"></script>
+    <!-- Security Configuration Scripts (load in order!) -->
+    <script type="module" src="./api-keys.js"></script>
+    <script type="text/javascript" src="./config.js"></script>
   </head>
   <body class="d-flex flex-column min-vh-100">
     
     <!-- Main Application Script -->
-    <script src="/scripts/script.js"></script>
+    <script src="./script.js"></script>
     
     <!-- Leaflet Draw Initialization -->
     <script>
-      // Initialize Leaflet Draw plugin when map is created
       if (typeof window !== 'undefined') {
-        // Store original setup function to modify later
         const originalMapSetup = typeof window.setupMaps === 'function' ? window.setupMaps : null;
         
-        // Override map creation to enable drawing tools
         if (originalMapSetup) {
           window.setupMaps = function(map) {
-            // Setup draw controls for polygon creation
             var drawnItems = new L.FeatureGroup();
             
-            // Add draw toolbar with modified icons for better UX
             var drawControl = new L.Control.Draw({
               edit: {
                 featureGroup: drawnItems,
@@ -73,28 +68,23 @@
               }
             });
             
-            // Add the draw control to the map after all other controls
             setTimeout(() => {
               if (map) {
                 map.addControl(drawControl);
                 
-                // Handle layer events
                 map.on('draw:created', function(e) {
                   const layer = e.layer;
                   
                   if (layer.getBounds && typeof layer.getBounds === 'function') {
-                    // Polygon - calculate and store the area in m2
-                    const polygonArea = layer.get总面积(); // Total area in m2
-    
-                    // Store the created polygon with its area information
-                    layer.area_m2 = polygonArea.toFixed(2); // Area rounded to 2 decimal places
+                    const polygonArea = layer.getArea();
+                    
+                    layer.area_m2 = polygonArea.toFixed(2);
                     layer.properties = {
                       geometry: layer.toGeoJSON(),
                       area_m2: polygonArea.toFixed(2)
                     };
                     console.log(`Created polygon with area: ${polygonArea.toFixed(2)} m2`);
                     
-                    // Add custom icon to indicate this is a user-drawn polygon
                     let polygonIcon = L.Icon.Default.prototype._getIconUrl();
                     layer.setIcon(new L.DivIcon({
                       className: 'custom-polygon',
@@ -106,7 +96,6 @@
                   }
                 });
                 
-                // Handle draw:deleted event (optional)
                 map.on('draw:deleted', function(e) {
                   console.log('Polygon deleted');
                 });
@@ -117,8 +106,8 @@
       }
     </script>
 
-    <!-- API Key Setup - Auto-installs floating configuration button (development) -->
-    <script type="module" src="/scripts/setup-api-keys.js"></script>
+    <!-- API Key Setup Modal -->
+    <script src="./setup-api-keys.js"></script>
     
     <!-- Leaflet JavaScript -->
     <script 

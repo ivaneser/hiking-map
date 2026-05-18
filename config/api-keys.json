@@ -1,6 +1,0 @@
-{
-  "apiKeys": {
-    "openrouteservice": "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImM2NmI0MDRiNDA2YTQwMDk4MDY0MTExNjc1MzgxNDU4IiwiaCI6Im11cm11cjY0In0="
-  },
-  "encryptionHint": "Use ApiKeyManager.decrypt() with your password"
-}
