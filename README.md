@@ -100,7 +100,7 @@ const OPENROUTESERVICE_URL = 'https://api.openrouteservice.org/v2/directions/foo
 // Calculates walking/hiking routes between points
 ```
 
-## 🎯 Usage Guide
+## 🚀 Setup
 
 ### 1. **Discover Spots**
    - Open the map and navigate to your area
@@ -135,13 +135,15 @@ This is a single-file application! All functionality lives in `index.html`.
 ### File Structure
 ```
 hiking-map/
-├── index.html          # Main application file
-└── README.md           # This file
+├── index.html              # Main HTML structure (loads Leaflet library)
+├── style.css               # All CSS styling and responsive design
+├── script.js               # Application logic and routing
+└── README.md               # Documentation
 ```
 
 ### Making Changes
-Since this is a monolithic HTML file:
-1. Edit `index.html` using any text editor
+This is a simple single-file application with separated CSS and JS files.
+1. You can edit **any** of the three files (`index.html`, `style.css`, or `script.js`)
 2. Test in your browser
 3. Commit and push to GitHub
 
