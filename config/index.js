@@ -1,96 +1,130 @@
 /**
- * Hiking Map Configuration Module - Demo Mode by Default
+ * Hiking Map Configuration Module - Zero Setup Required
  * 
- * Automatically loads API keys if stored, otherwise uses demo mode.
- * No intrusive setup required - just browse and build routes!
+ * Default behavior:
+ * • No prompts at all while browsing
+ * • Routes build in demo mode automatically  
+ * • Setup modal ONLY appears when API key would be needed
  */
 
 if (typeof window !== 'undefined') {
-  // Initialize with demo mode by default for immediate use
+  // Always use demo mode by default - never prompt!
   const CONFIG = {
-    orApiKey: '', // Empty means no auth header (demo mode)
+    orApiKey: '',              // Empty = demo mode (no auth)
     overpassApiUrl: 'https://overpass-api.de/api/interpreter',
-    demoMode: true, // Default to demo mode - browse freely!
+    demoMode: true,            // Always enabled in production
     
-    // Functions used by script.js for prompting setup
-    showApiKeySetup: function() {
-      console.log('Opening API key setup...');
-      if (!window.ApiKeyManager) {
-        console.error('ApiKeyManager not loaded. Check config/api-keys.js');
-        return;
-      }
-      
-      const manager = new window.ApiKeyManager();
-      const initKeys = async () => await manager.init();
-      
-      // Show setup modal if no keys exist and not in demo mode
-      if (!CONFIG.demoMode) {
-        initKeys().then((keys) => {
-          if (!keys && !CONFIG.orApiKey) {
-            CONFIG.showApiKeySetup = () => manager.setupModal?.() || {};
-            window.openAboutToSetup?.();
-          }
-        });
-      }
-    },
+    // Demo mode API key string for fallback
+    demoApiKey: '',
+  };
+
+  /**
+   * Try to load stored API key silently (no user prompt)
+   */
+  CONFIG.tryLoadStoredKey = async function() {
+    const manager = new window.ApiKeyManager();
     
-    openAboutToSetup: async function() {
-      const storedKeys = await new window.ApiKeyManager().init?.();
+    try {
+      // Check if encrypted storage exists and is valid
+      const keys = await manager.init();
       
-      if (storedKeys) {
-        // Keys exist - show setup modal to allow update
-        CONFIG.showApiKeySetup = () => new window.ApiKeyManager()?.setupModal?.() || {};
-        
-        window.open('about:blank', 'setupPrompt');
-        
-        const containerHtml = `
-          <div style="
-            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
-            display: flex; align-items: center; justify-content: center; z-index: 999998;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          ">
-            <div style="
-              background: #1e3a5f; padding: 40px; border-radius: 16px; text-align: center;
-              box-shadow: 0 25px 50px rgba(0,0,0,0.4); color: white; min-width: 350px;
-            ">
-              <h2 style="color: white; margin: 0 0 16px;">🔐 API Key Detected</h2>
-              <p style="color: #d1d5db; line-height: 1.6;">
-                You have stored OpenRouteService API keys securely in your browser.<br><br>
-                Would you like to configure them now? This is optional.
-              </p>
-              <button 
-                id="setupButton" 
-                style="margin-top: 20px; padding: 12px 24px; font-size: 16px; border-radius: 8px; cursor: pointer;"
-                onclick="CONFIG.showApiKeySetup?.() || window.location.reload()"
-              >Configure Now</button>
-              <br><br>
-              <button 
-                style="background: transparent; color: #9ca3af; border: none; background: transparent; padding: 8px 16px; font-size: 14px; cursor: pointer;"
-                onclick="window.close();"
-              >Not Now</button>
-            </div>
-          </div>
-        `;
-        
-        const promptWin = window.open('about:blank', '_blank');
-        if (promptWin) {
-          promptWin.document.write(containerHtml);
-          promptWin.document.close();
-        } else {
-          console.warn('Popup blocked by browser, reload page to continue');
-        }
-      } else {
-        // No keys stored - use demo mode
-        return false;
+      if (keys && keys.openrouteservice) {
+        CONFIG.orApiKey = keys.openrouteservice;
+        console.log('✅ Loaded stored API key');
+        return true;
       }
+    } catch {
+      console.warn('Stored keys not available, using demo mode');
+    }
+    
+    // Fall back to demo mode (no prompts!)
+    CONFIG.demoMode = true;
+    return false;
+  };
+
+  /**
+   * Get current auth header for API requests
+   */
+  CONFIG.getAuthHeader = async function() {
+    const manager = new window.ApiKeyManager();
+    
+    try {
+      const keys = await manager.init();
+      
+      // Demo mode or no stored key = empty auth header
+      if (!keys || !keys.openrouteservice) {
+        console.log('Using demo mode (no authentication)');
+        return '';
+      }
+      
+      return 'Bearer ' + keys.openrouteservice;
+    } catch {
+      console.warn('Failed to load stored key, using demo mode');
+      return '';
     }
   };
+
+  /**
+   * Check if running in demo mode
+   */
+  CONFIG.isDemoMode = async function() {
+    const manager = new window.ApiKeyManager();
+    const keys = await manager.init();
+    
+    // Demo mode = no valid API key in storage
+    return !keys || !keys.openrouteservice;
+  };
+
+  /**
+   * Silent initialization - check for stored keys, use demo if none found
+   */
+  CONFIG.initSilently = async function() {
+    console.log('🚀 Initializing Hiking Map...');
+    
+    // Try to load stored key (fails silently)
+    await CONFIG.tryLoadStoredKey();
+    
+    // Check current status
+    const isDemo = await CONFIG.isDemoMode();
+    
+    if (isDemo) {
+      console.log('✅ Demo mode: Browse and explore freely!');
+      console.log('   Build routes in demo mode (no API key needed)');
+    } else {
+      console.log('✅ Full mode: Using stored API key');
+    }
+  };
+
+  /**
+   * Show setup modal when user tries to build route without valid key
+   */
+  CONFIG.showSetupModalIfNeeded = async function() {
+    // Check if we need to show the modal (no API key stored)
+    const manager = new window.ApiKeyManager();
+    const keys = await manager.init();
+    
+    // Only show modal if:
+    // 1. No API key in storage AND
+    // 2. Not already using demo mode explicitly
+    if (!keys || !keys.openrouteservice) {
+      // Show the modal with all options
+      const setupModal = new window.ApiKeyManager().setupModal;
+      await setupModal?.();
+      
+      return true;
+    }
+    
+    return false;
+  };
+
+  // Run silent initialization when loaded
+  CONFIG.initSilently().catch(console.error);
 }
 
-// Export for Node.js environment
+// Export for Node.js environments
 if (typeof module !== 'undefined' && module.exports) {
   try {
-    window.initConfig();
+    window.initConfig?.();
     module.exports = {};
-  } catch(e) {}
+  } catch(e) { console.warn('Config init error:', e.message); }
 }

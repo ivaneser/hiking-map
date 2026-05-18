@@ -1,8 +1,10 @@
 /**
- * API Keys Security Module - Always Prompt for Setup
+ * API Keys Security Module - Silent Demo Mode by Default
  * 
- * This module handles secure storage of OpenRouteService API keys.
- * Default behavior: Demomode works, shows setup modal when needed.
+ * Design Philosophy:
+ * 1. User can browse/search freely without any prompts ✓
+ * 2. Setup modal ONLY when user tries to build route AND has no key stored
+ * 3. Never show "about to setup" screen during normal browsing ✓
  */
 
 class ApiKeyManager {
@@ -11,72 +13,41 @@ class ApiKeyManager {
   }
 
   /**
-   * Initialize and check for stored keys
+   * Initialize and silently check for stored keys
    */
   async init() {
     const raw = localStorage.getItem(this.STORAGE_KEY);
-    if (!raw) return false;
+    
+    if (!raw) return false; // No storage yet
     
     try {
       const data = JSON.parse(raw);
       
-      // Demo mode or no password = demo mode
+      // Demo mode (explicitly set or corrupted)
       if (data.demomode === 'true') return true;
       
-      // Has encrypted storage but no password
+      // Has encrypted storage with password - check if valid
       const password = localStorage.getItem('hiking_map_password');
-      if (!password) return true; // Return true - keys exist with password
+      if (!password) {
+        // No password but has storage = corrupted, use demo mode
+        return false;
+      }
       
-      // Try to decrypt and verify keys work
-      const decrypted = await this.tryDecrypt(data.keys);
-      if (!decrypted || !decrypted.openrouteservice) return false;
-      
-      return true;
+      // Valid encrypted storage - try to decrypt and get key
+      try {
+        const decrypted = await this.tryDecrypt(data.keys);
+        return !!decrypted?.openrouteservice; // true if key exists
+      } catch {
+        // Decryption failed, consider it invalid
+        return false;
+      }
     } catch {
       return false;
     }
   }
 
   /**
-   * Load API keys for authentication
-   */
-  async getAuthHeader() {
-    const stored = await this.init();
-    
-    // Demo mode - no auth needed
-    if (typeof CONFIG !== 'undefined' && CONFIG.demoMode === true) {
-      console.log('Using demo mode (no auth)');
-      return '';
-    }
-    
-    // Try to load from storage
-    const raw = localStorage.getItem(this.STORAGE_KEY);
-    if (!raw) return '';
-    
-    try {
-      const data = JSON.parse(raw);
-      
-      // Demo mode flag
-      if (data.demomode === 'true') return '';
-      
-      const password = localStorage.getItem('hiking_map_password');
-      if (!password) return '';
-      
-      // Try decrypting and get the key
-      try {
-        const decrypted = await this.tryDecrypt(data.keys);
-        return decrypted?.openrouteservice || '';
-      } catch {
-        console.warn('Failed to decrypt stored keys, using demo mode');
-        return '';
-      }
-    } catch {
-      return '';
-    }
-  }
-
-  /**
-   * Try to decrypt stored keys (for verification)
+   * Try to decrypt stored keys (for init() verification)
    */
   async tryDecrypt(keys) {
     const password = localStorage.getItem('hiking_map_password');
@@ -88,13 +59,45 @@ class ApiKeyManager {
         const decrypted = await this.decrypt(encrypted);
         if (decrypted && decrypted.key !== undefined) {
           decryptedKeys[keyName] = decrypted.key;
+        } else {
+          throw new Error('Missing key property');
         }
       } catch {
-        throw new Error('Key decryption failed');
+        throw new Error(`Failed to decrypt ${keyName}`);
       }
     }
     
     return decryptedKeys;
+  }
+
+  /**
+   * Load API key for current request (demo mode = empty string)
+   */
+  async getApiKey() {
+    // Check if demo mode is active
+    if (CONFIG && CONFIG.demoMode === true) {
+      console.log('Using demo mode');
+      return '';
+    }
+    
+    const stored = await this.init();
+    if (!stored) return ''; // Demo mode
+    
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      const data = JSON.parse(raw);
+      
+      // Get password for decryption
+      const password = localStorage.getItem('hiking_map_password');
+      if (!password) return '';
+      
+      // Try decrypting and getting the key
+      const decrypted = await this.tryDecrypt(data.keys);
+      return decrypted?.openrouteservice || '';
+    } catch {
+      console.warn('Failed to load stored API key');
+      return ''; // Use demo mode
+    }
   }
 
   /**
@@ -120,7 +123,7 @@ class ApiKeyManager {
   }
 
   /**
-   * Decrypt a value
+   * Decrypt a value using AES-GCM
    */
   async decrypt(encryptedData) {
     const salt = atob(encryptedData.salt);
@@ -137,12 +140,12 @@ class ApiKeyManager {
   }
 
   /**
-   * Derive encryption key from password using PBKDF2
+   * Derive encryption key from password using PBKDF2 (100k iterations)
    */
   async deriveKey(password, salt) {
     const encodedPassword = new TextEncoder().encode(password);
     return window.crypto.subtle.deriveKey(
-      { name: 'PBKDF2', hash: 'SHA-256', salt: this.decodeSalt(salt), iterations: 100000 },
+      { name: 'PBKDF2', hash: 'SHA-256', salt: salt, iterations: 100000 },
       encodedPassword,
       { name: 'AES-GCM', length: 256 },
       true,
@@ -151,7 +154,7 @@ class ApiKeyManager {
   }
 
   /**
-   * Get stored salt or generate new one
+   * Get stored salt or generate new one (with fallback to localStorage)
    */
   async getSalt() {
     let existingSalt = localStorage.getItem('hiking_map_salt');
@@ -166,25 +169,25 @@ class ApiKeyManager {
   }
 
   /**
-   * Decode salt from base64 to buffer-like object
+   * Decode salt from base64 string to buffer-like object
    */
   decodeSalt(salt) {
     const bytes = Uint8Array.from(atob(salt), c => c.charCodeAt(0));
     return { 
-      toString: () => Buffer.from(bytes).toString('base64'),
+      toString: () => Buffer ? Buffer.from(bytes).toString('base64') : 'base64',
       slice: (start, end) => this.decodeSalt(btoa(String.fromCharCode(...bytes.slice(start, end))))
     };
   }
 
   /**
-   * Get stored password or prompt for it (should only be called in setup)
+   * Get stored password for decryption
    */
   getPassword() {
     return localStorage.getItem('hiking_map_password') || '';
   }
 
   /**
-   * Set password (called from setup modal)
+   * Set password for encrypted storage
    */
   setPassword(password) {
     if (!password || typeof password !== 'string') {
@@ -193,7 +196,6 @@ class ApiKeyManager {
     }
     
     localStorage.setItem('hiking_map_password', password);
-    console.log('✓ Password set for encrypted storage');
     return true;
   }
 
@@ -210,7 +212,17 @@ class ApiKeyManager {
       encryptedKeys[key] = { salt: encrypted.salt, iv: encrypted.iv, ciphertext: encrypted.ciphertext };
     }
 
+    // Store with demomode=false for encrypted storage
     localStorage.setItem(this.STORAGE_KEY, JSON.stringify({ demomode: 'false', keys: encryptedKeys }));
+  }
+
+  /**
+   * Switch to demo mode (clear encrypted storage)
+   */
+  enableDemoMode() {
+    // Clear encrypted storage and switch to demo
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify({ demomode: 'true', keys: {} }));
+    console.log('✅ Demo mode enabled');
   }
 
   /**
@@ -223,34 +235,37 @@ class ApiKeyManager {
   }
 
   /**
-   * Setup modal - shows when API key storage is needed
-   * Returns cleanup function to remove the modal
+   * Setup modal for configuring API key storage
+   * Shows when user wants to store their first API key
    */
-  async setupModal() {
+  setupModal() {
     const overlay = document.createElement('div');
     overlay.id = 'apiKeySetupOverlay';
+    
+    // Centered modal styling
     overlay.style.cssText = `
-      position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
       display: flex; align-items: center; justify-content: center; z-index: 999999;
     `;
 
     const container = document.createElement('div');
     container.style.cssText = `
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      padding: 36px 48px; border-radius: 24px; text-align: center; color: white;
-      box-shadow: 0 25px 50px rgba(0,0,0,0.3); max-width: 520px;
+      padding: 40px; border-radius: 24px; text-align: center; color: white;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.3); max-width: 500px; width: 90%;
     `;
 
     const html = `
       <div style="position: relative;">
-        <h2 style="margin: 0 0 8px;">🔐 API Key Setup</h2>
-        <p style="color: rgba(255,255,255,0.9); margin-bottom: 24px; line-height: 1.6;">
+        <h2 style="margin: 0 0 8px; font-size: 24px;">🔐 API Key Setup</h2>
+        
+        <p style="color: rgba(255,255,255,0.9); margin-bottom: 32px; line-height: 1.6; font-size: 15px;">
           Store your OpenRouteService API key securely in the browser.<br>
           Your keys are encrypted and never sent to any server!
         </p>
 
         <div style="background: rgba(255,255,255,0.1); padding: 24px; border-radius: 16px; margin-bottom: 24px; text-align: left;">
-          <h3 style="margin: 0 0 12px; color: #fff;">Option 1: Continue with Demo Mode</h3>
+          <h3 style="margin: 0 0 12px; color: #fff; font-size: 18px;">🌟 Demo Mode (Recommended)</h3>
           <p style="color: rgba(255,255,255,0.8); margin-bottom: 8px;">Browse freely, search spots, view maps</p>
           <button 
             onclick="window.ApiKeyManager.clearKeys(); location.reload();"
@@ -259,8 +274,8 @@ class ApiKeyManager {
         </div>
 
         <div style="background: rgba(255,255,255,0.1); padding: 24px; border-radius: 16px; margin-bottom: 24px; text-align: left;">
-          <h3 style="margin: 0 0 12px; color: #fff;">Option 2: Enter API Key</h3>
-          <p style="color: rgba(255,255,255,0.8); margin-bottom: 8px;">Full access to build unlimited routes</p>
+          <h3 style="margin: 0 0 12px; color: #fff; font-size: 18px;">⚙️ Store API Key</h3>
+          <p style="color: rgba(255,255,255,0.8); margin-bottom: 8px;">For full features and unlimited routes</p>
           
           <div style="background: white; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
             <input 
@@ -288,71 +303,79 @@ class ApiKeyManager {
     overlay.appendChild(container);
     document.body.appendChild(overlay);
 
-    // Add password input for encryption
-    const passwordContainer = document.createElement('div');
-    passwordContainer.style.cssText = `background: rgba(255,255,255,0.1); padding: 16px; border-radius: 12px; margin-bottom: 12px;`;
-    passwordContainer.innerHTML = `
-      <p style="color: rgba(255,255,255,0.8); font-size: 13px; margin-bottom: 8px;">⚙️ Choose a password to encrypt your keys</p>
-      <input 
-        id="passwordInput" type="password" placeholder="Set encryption password (don't forget!)"
-        style="width: 100%; padding: 12px; border-radius: 8px; border: none; font-size: 14px;"
-      />
-    `;
-    
-    // Hide password section initially, show it after first option click
+    // Show password field
     setTimeout(() => {
-      if (document.getElementById('passwordInput')) {
-        document.getElementById('apiSetupContainer').querySelectorAll('.api-option')[0].style.display = 'none';
-      }
+      const passContainer = document.createElement('div');
+      passContainer.style.cssText = `background: rgba(255,255,255,0.15); padding: 16px; border-radius: 12px; margin-bottom: 12px;`;
+      passContainer.innerHTML = `
+        <p style="color: rgba(255,255,255,0.8); font-size: 13px; margin-bottom: 8px;">⚙️ Choose a password to encrypt your keys</p>
+        <input 
+          id="passwordInput" type="password" placeholder="Set encryption password (don't forget!)"
+          style="width: 100%; padding: 12px; border-radius: 8px; border: none; font-size: 14px;"
+        />
+      `;
+      
+      // Hide API key field initially if demo mode preferred
+      const apiInput = document.getElementById('apiInput');
+      const setupBtn = overlay.querySelector('button[onclick*="setupWithPassword"]');
+      const setPassBtn = overlay.querySelector('[style*="background: #60a5fa"]');
+      
+      setTimeout(() => {
+        passContainer.querySelector('input').focus();
+        apiInput.disabled = true;
+        setPassBtn.style.opacity = '0.3';
+      }, 200);
+      
+      document.getElementById('setupOverlay').appendChild(passContainer);
     }, 100);
 
-    const overlayId = document.querySelector('#apiKeySetupOverlay')?.id;
-    
-    // Close when clicking outside or on close button
+    // Close when clicking outside overlay or close button
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) overlay.remove();
     });
 
-    // Add password change listener
-    document.getElementById('passwordInput')?.addEventListener('input', () => {
-      localStorage.setItem('hiking_map_password', document.getElementById('passwordInput').value);
+    const overlayId = 'setupOverlay';
+    
+    // Setup handler for password change
+    document.getElementById('passwordInput')?.addEventListener('input', (e) => {
+      localStorage.setItem('hiking_map_password', e.target.value);
     });
 
-    const cleanup = () => overlay.remove();
-    
-    return cleanup;
+    return () => overlay.remove();
   }
 
   /**
-   * Setup with password and store keys
+   * Setup with password and store API key if provided
    */
   setupWithPassword() {
-    const apiKey = document.getElementById('apiInput')?.value || '';
-    const password = document.getElementById('passwordInput')?.value || 'demo-password';
+    const apiKey = document.getElementById('apiInput')?.value.trim();
+    const password = document.getElementById('passwordInput')?.value || 'demo-no-password';
     
     // Store password in localStorage for decryption
-    if (password.trim()) {
-      this.setPassword(password);
-    }
+    this.setPassword(password);
 
-    // If key is provided, store it
-    if (apiKey.trim()) {
-      // Try to store encrypted or use demo mode flag
-      try {
-        const stored = localStorage.getItem(this.STORAGE_KEY);
-        if (!stored || JSON.parse(stored).demomode === 'true') {
-          // Clear and re-store with new key
-          this.storeKeys({ openrouteservice: apiKey });
-          console.log('✓ API key stored and encrypted');
-          document.getElementById('setupOverlay')?.remove();
-        }
-      } catch {
-        // Use demo mode if storage fails
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify({ demomode: 'true' }));
+    let storedKeys = {};
+    
+    try {
+      const raw = localStorage.getItem(this.STORAGE_KEY);
+      if (raw) {
+        storedKeys = JSON.parse(raw).keys || {};
       }
-    } else {
-      // No API key - switch to demo mode
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify({ demomode: 'true', keys: {} }));
+    } catch {}
+
+    // If no key provided, switch to demo mode
+    if (!apiKey || apiKey === '') {
+      this.enableDemoMode();
+      document.getElementById('setupOverlay')?.remove();
+      return;
+    }
+    
+    // Store encrypted API key
+    try {
+      this.storeKeys({ openrouteservice: apiKey });
+      console.log('✅ API key stored and encrypted');
+    } catch (e) {
+      console.error('Failed to store API key:', e.message);
     }
 
     document.getElementById('setupOverlay')?.remove();
