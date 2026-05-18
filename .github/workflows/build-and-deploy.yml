@@ -24,54 +24,51 @@ jobs:
         run: |
           echo "OR_API_KEY=${{ secrets.OR_API_KEY }}"
 
-      - name: Build static site - copy files to ./ root level
+      - name: Build static site - copy ALL files to root level
         run: |
           mkdir -p ${{ env.BUILD_DIR }}
           
-          # Copy HTML with relative paths for ./hiking-map/ deployment
+          # Copy HTML with simple relative paths
           cp index.html ${{ env.BUILD_DIR }}/ 2>/dev/null || true
           
-          # Copy CSS from root if exists
+          # Copy CSS (style.css)
           if [ -f style.css ]; then
             cp style.css ${{ env.BUILD_DIR }}/.style.css 2>/dev/null || true
           fi
           
-          # Copy script.js (move to root level)
+          # Copy all JavaScript files to root level
           if [ -f scripts/script.js ]; then
             cp scripts/script.js ${{ env.BUILD_DIR }}/script.js 2>/dev/null || true
           elif [ -f script.js ]; then
             cp script.js ${{ env.BUILD_DIR }}/script.js 2>/dev/null || true
           fi
           
-          # Copy setup-api-keys.js (move to root level)  
           if [ -f scripts/setup-api-keys.js ]; then
             cp scripts/setup-api-keys.js ${{ env.BUILD_DIR }}/setup-api-keys.js 2>/dev/null || true
           elif [ -f config/setup-api-keys.js ]; then
             cp config/setup-api-keys.js ${{ env.BUILD_DIR }}/setup-api-keys.js 2>/dev/null || true
           fi
           
-          # Copy api-keys.js (move to root level, change name for relative path)
           if [ -f scripts/api-keys.js ]; then
             cp scripts/api-keys.js ${{ env.BUILD_DIR }}/api-keys.js 2>/dev/null || true
           elif [ -f config/api-keys.js ]; then
             cp config/api-keys.js ${{ env.BUILD_DIR }}/api-keys.js 2>/dev/null || true
           fi
           
-          # Copy config/index.js -> config.js (move to root level, change name)
           if [ -f scripts/config/index.js ]; then
             cp scripts/config/index.js ${{ env.BUILD_DIR }}/config.js 2>/dev/null || true
           elif [ -f config/index.js ]; then
             cp config/index.js ${{ env.BUILD_DIR }}/config.js 2>/dev/null || true
           fi
           
-          # Copy docs (if exists)
+          # Copy docs (optional, informational)
           if [ -d docs ]; then
             mkdir -p ${{ env.BUILD_DIR }}/docs
             cp docs/API_KEY_SETUP.md ${{ env.BUILD_DIR }}/docs/ 2>/dev/null || true
             cp docs/SECURITY_GUIDE.md ${{ env.BUILD_DIR }}/docs/ 2>/dev/null || true
           fi
           
-          echo "✓ All files copied to root level in ${{ env.BUILD_DIR }}/ (ready for /hiking-map/ deployment)"
+          echo "✓ All files copied to root level in ${{ env.BUILD_DIR }}/"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
