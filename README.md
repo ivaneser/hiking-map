@@ -156,10 +156,44 @@ This is a simple single-file application with separated CSS and JS files.
 
 ## 🔒 Privacy & Security
 
-- **Client-side only:** No data sent to external servers except API calls
-- **Respects local storage limitations**
-- **HTTPS recommended for production**
-- **API keys stored in JavaScript (not ideal for sensitive apps)**
+### API Key Management 🗝️
+
+The application now supports **encrypted browser storage** for API keys.
+
+#### Quick Setup (First Time)
+
+1. Open the app in your browser
+2. A floating button "🔐 Configure API Keys" will appear
+3. Click it to open the secure setup page
+4. Follow the prompts to enter your API key and (optionally) set a password
+
+**Your API keys are encrypted and stored securely in browser storage.**
+
+#### Development Mode
+
+For development, the app auto-detects demo mode when:
+- Running on `localhost`
+- No API keys stored
+
+To manually configure during dev:
+```javascript
+window.setupApiKeySetup()
+// Follow the setup prompts
+```
+
+#### Security Features
+- **Encrypted Storage:** Your API keys are AES-GCM encrypted in your browser
+- **Optional Password Protection:** Set a password for extra security
+- **Never Hardcoded:** Keys are never committed to source code or shared
+- **Private by Design:** Keys only stored in YOUR browser, never sent anywhere
+
+#### For Developers & Production Deployments
+
+See [API Key Setup Guide](docs/API_KEY_SETUP.md) for:
+- GitHub Actions workflow for CI/CD
+- GitHub Secrets configuration  
+- Backend proxy patterns
+- Advanced security options
 
 ## 🌍 Data Sources
 

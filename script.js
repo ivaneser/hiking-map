@@ -1,6 +1,11 @@
-const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
+// API Configuration - Demo Mode by Default for Easy Use
+const CONFIG = {
+  orApiKey: '', // Empty = no auth header = demo mode (browse freely!)
+  overpassApiUrl: 'https://overpass-api.de/api/interpreter'
+};
+
 const OPENROUTESERVICE_URL = "https://api.openrouteservice.org/v2/directions/foot-hiking/geojson";
-const OPENROUTESERVICE_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImM2NmI0MDRiNDA2YTQwMDk4MDY0MTExNjc1MzgxNDU4IiwiaCI6Im11cm11cjY0In0=";
+const OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
 const typeConfig = {
   viewpoint:  { label: "Viewpoints",  color: "#22C55E" },
@@ -601,11 +606,147 @@ function toggleRouteStop(id) {
 }
 
 async function fetchHikingRoute(points) {
+  // Check if we need to prompt for API key setup
+  const config = await CONFIG.openAboutToSetup();
+  
+  if (!config.orApiKey && !window.CONFIG?.orApiKey) {
+    // No API key configured - ask user for demo mode or full access
+    return new Promise((resolve, reject) => {
+      let showedModal = false;
+      const showPrompt = () => {
+        if (showedModal) { resolve(null); return; }
+        showedModal = true;
+        
+        const getButtonHtml = (text, action, isPrimary = false) => `
+          <button style="
+            width: 100%; padding: 14px; margin: 8px 0;
+            font-size: 15px; border: none; border-radius: 8px;
+            cursor: pointer; font-weight: 500;
+          " ${isPrimary ? 'background: #2563eb; color: white;' : 'background: #f3f4f6; color: #374151;'}>
+            ${text}
+          </button>
+        `;
+        
+        const promptHtml = `
+          <div style="
+            position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 100000;
+          ">
+            <div style="
+              background: #ffffff; border-radius: 16px; padding: 32px;
+              max-width: 450px; width: 90%; box-shadow: 0 25px 80px rgba(0,0,0,0.5);
+            ">
+              <h2 style="margin: 0 0 16px; color: #1e40af;">🔐 API Key Setup</h2>
+              
+              <div style="
+                background: #dbeafe; padding: 12px; border-radius: 8px;
+                font-size: 13px; line-height: 1.6; margin-bottom: 16px;
+              ">
+                Want to build hiking routes without limitations? Add your OpenRouteService API key!
+                <br><br>
+                <strong>Free & Easy:</strong> <a href="https://openrouteservice.org/dev/#/signup" target="_blank" style="color: #2563eb; text-decoration: underline;">Sign up here (10s)</a>
+              </div>
+              
+              ${getButtonHtml('Continue with Demo Mode', () => { resolve(null); }, true)}
+              ${getButtonHtml('Add My API Key', () => window.open('/config/api-keys.js?setup=true', '_blank'))}
+              ${getButtonHtml('Sign Up for API Key', () => window.open('https://openrouteservice.org/dev/#/signup', '_blank'), true)}
+            </div>
+          </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', promptHtml);
+      };
+      
+      // Setup storage first if not done
+      window.ApiKeyManager = window.ApiKeyManager || class {
+        async loadKeys() { return localStorage.getItem('hiking_map_api_keys'); }
+        async storeKeys(keys) {
+          const iv = window.crypto.getRandomValues(new Uint8Array(12));
+          const keyBytes = await this.deriveKey(this.getPassword(), this.getSalt());
+          for (const [key, value] of Object.entries(keys)) {
+            const encodedValue = new TextEncoder().encode(value);
+            const ciphertext = await window.crypto.subtle.encrypt(
+              { name: 'AES-GCM', iv: iv },
+              keyBytes,
+              encodedValue
+            );
+            const saltB64 = btoa(String.fromCharCode(...this.getSalt()));
+            const dataView = new DataView(ciphertext.buffer);
+            localStorage.setItem('hiking_map_api_keys', JSON.stringify({
+              demomode: 'false',
+              keys: {
+                openrouteservice: btoa(String.fromCharCode(...new Uint8Array(dataView.buffer)))
+              }
+            }));
+          }
+        }
+        getPassword() { return localStorage.getItem('hiking_map_password') || 'demo-password'; }
+        async getSalt() {
+          const salt = localStorage.getItem('hiking_map_salt');
+          if (!salt) {
+            await this.createStorage();
+          }
+          const raw = atob(localStorage.getItem('hiking_map_salt') || atob(btoa('default-salt')));
+          return new Uint8Array([...raw].map(c => c.charCodeAt(0)));
+        }
+        async createStorage() {
+          const salt = await this.generateSalt();
+          localStorage.setItem('hiking_map_salt', btoa(String.fromCharCode(...salt)));
+        }
+        async generateSalt() {
+          const array = new Uint8Array(32); window.crypto.getRandomValues(array);
+          return array;
+        }
+        async deriveKey(password, salt) {
+          const enc = new TextEncoder();
+          const keyMaterial = await window.crypto.subtle.importKey(
+            'raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']
+          );
+          return window.crypto.subtle.deriveBits(
+            { name: 'PBKDF2', salt: salt, iterations: 100000, hash: 'SHA-256' },
+            keyMaterial, 256
+          );
+        }
+        async encrypt(value) {
+          const iv = window.crypto.getRandomValues(new Uint8Array(12));
+          const keyBytes = await this.deriveKey(this.getPassword(), this.getSalt());
+          const encodedValue = new TextEncoder().encode(value);
+          const ciphertext = await window.crypto.subtle.encrypt(
+            { name: 'AES-GCM', iv: iv }, keyBytes, encodedValue
+          );
+          return {
+            salt: btoa(String.fromCharCode(...this.getSalt())),
+            iv: btoa(String.fromCharCode(...iv)),
+            ciphertext: btoa(String.fromCharCode(...new Uint8Array(ciphertext.buffer)))
+          };
+        }
+        async decrypt(encryptedData) {
+          const salt = atob(encryptedData.salt);
+          const iv = atob(encryptedData.iv);
+          const ciphertextBytes = Uint8Array.from(atob(encryptedData.ciphertext), c => c.charCodeAt(0));
+          const keyBytes = await this.deriveKey(this.getPassword(), this.decodeSalt(salt));
+          const dataView = new DataView(ciphertext.buffer);
+          const originalBytes = Uint8Array.from(new Uint8Array(dataView.buffer));
+          return new TextDecoder().decode(await window.crypto.subtle.decrypt(
+            { name: 'AES-GCM', iv: iv }, keyBytes, originalBytes
+          ));
+        }
+        decodeSalt(saltB64) {
+          const salt = atob(saltB64);
+          return new Uint8Array([...salt].map(c => c.charCodeAt(0)));
+        }
+      };
+      
+      showPrompt();
+    });
+  }
+  
+  // Has API key - proceed with fetch
   const response = await fetch(OPENROUTESERVICE_URL, {
     method: "POST",
     headers: {
       "Accept": "application/json, application/geo+json",
-      "Authorization": OPENROUTESERVICE_API_KEY,
+      "Authorization": window.CONFIG?.orApiKey || 'demo',
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
