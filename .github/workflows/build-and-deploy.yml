@@ -68,36 +68,6 @@ jobs:
       - name: Set environment variables from secrets
         run: |
           echo "OR_API_KEY=${{ secrets.OR_API_KEY }}"
-        run: |
-          node <<EOF
-            const crypto = require('crypto');
-            
-            const orApiKey = process.env.OR_API_KEY || 'demo_key_not_recommended';
-            const salt = crypto.randomBytes(16).toString('hex');
-            const iterations = 100000;
-            const keyLength = 32;
-
-            const algorithm = {
-              name: 'PBKDF2',
-              hash: 'SHA-256',
-              salt: Buffer.from(salt, 'hex'),
-              iterations: iterations,
-              length: keyLength
-            };
-
-            const keyMaterial = crypto.pbkdf2Sync(
-              orApiKey,
-              algorithm.salt,
-              algorithm.iterations,
-              algorithm.length / 8,
-              'sha256'
-            );
-
-            const apiToken = Buffer.concat([keyMaterial, Buffer.from(salt)]).toString('base64');
-            
-            console.log('INJECT_API_TOKEN=' + apiToken);
-          EOF
-        shell: bash
 
       - name: Create build config file
         run: |
@@ -106,7 +76,7 @@ jobs:
           cat > ${{ env.BUILD_DIR }}/config/api-keys.json <<ENDBLOCK
           {
             "apiKeys": {
-              "openrouteservice": "${{ env.INJECT_API_TOKEN }}"
+              "openrouteservice": "${{ secrets.OR_API_KEY }}"
             },
             "encryptionHint": "Use ApiKeyManager.decrypt() with your password"
           }
@@ -147,8 +117,9 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ github.token }}
+          github_token: ${{ secrets.DEPLOY_TOKEN }}
           publish_dir: ${{ env.BUILD_DIR }}
+          force_or_source: true
 
   test:
     name: Run Tests (if e2e tests exist)
