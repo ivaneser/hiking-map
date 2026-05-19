@@ -1,8 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-  // Run tests with complete deployment structure
-  testDir: './dist',
+  testDir: './',
   
   use: {
     viewport: { width: 1280, height: 720 },
@@ -12,19 +11,14 @@ export default defineConfig({
   
   reporter: [
     ['list'],
-    ['html', { outputFolder: 'playwright-report' }],
   ],
   
   projects: [
     {
       name: 'chromium',
       use: { 
-        ...{ deviceScaleFactor: 1 },
-        screenshot: 'only-on-failure',
+        deviceScaleFactor: 1,
       },
     },
   ],
-  
-  // Global setup - prepare deployment structure for testing
-  globalSetup: './playwright-setup.js'
 });
