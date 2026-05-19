@@ -18,6 +18,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Validate required secrets
+        env:
+          OR_API_KEY: ${{ secrets.OR_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OR_API_KEY:-}" ]; then
+            echo "ERROR: Required secret OR_API_KEY is missing."
+            echo "Set it in repo Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
       - name: Prepare dist
         env:
           OR_API_KEY: ${{ secrets.OR_API_KEY }}
