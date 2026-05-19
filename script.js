@@ -826,32 +826,50 @@
         : "No route stops selected. Click map markers to add stops.";
     }
 
-    async function fetchHikingRoute(points) {
+    async function fetchHikingRoute(points, allowRetry = true) {
       const apiKey = await ensureOrsApiKey();
       if (!apiKey) {
         throw new Error("Missing OpenRouteService API key. Configure your key to build routes.");
       }
 
-      const response = await fetch(OPENROUTESERVICE_URL, {
-        method: "POST",
-        headers: {
-          "Accept": "application/json, application/geo+json",
-          "Authorization": apiKey,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          coordinates: points.map((spot) => [spot.lon, spot.lat])
-        })
-      });
-      const data = await response.json();
-      if (!response.ok || !data.features?.[0]?.geometry?.coordinates) {
-        throw new Error(data.error?.message || data.message || `OpenRouteService returned ${response.status}`);
+      try {
+        const response = await fetch(OPENROUTESERVICE_URL, {
+          method: "POST",
+          headers: {
+            "Accept": "application/json, application/geo+json",
+            "Authorization": apiKey,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            coordinates: points.map((spot) => [spot.lon, spot.lat])
+          })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.features?.[0]?.geometry?.coordinates) {
+          throw new Error(data.error?.message || data.message || `OpenRouteService returned ${response.status}`);
+        }
+
+        const feature = data.features[0];
+        return {
+          coordinates: feature.geometry.coordinates.map(([lon, lat]) => [lat, lon]),
+          summary: feature.properties?.summary || null
+        };
+      } catch (error) {
+        if (allowRetry && typeof window.setupApiKeySetup === "function") {
+          const manager = window.ApiKeyManager ? new window.ApiKeyManager() : null;
+          manager?.clearKeys?.();
+
+          alert("Route build failed. Please re-enter your OpenRouteService API key.");
+          const newKey = await window.setupApiKeySetup();
+
+          if (newKey) {
+            return fetchHikingRoute(points, false);
+          }
+        }
+
+        throw error;
       }
-      const feature = data.features[0];
-      return {
-        coordinates: feature.geometry.coordinates.map(([lon, lat]) => [lat, lon]),
-        summary: feature.properties?.summary || null
-      };
     }
 
 	async function buildFootLoop() {
