@@ -1,10 +1,11 @@
     const OVERPASS_URL = window.CONFIG?.overpassUrl || "https://overpass-api.de/api/interpreter";
     const OPENROUTESERVICE_URL = window.CONFIG?.openRouteServiceUrl || "https://api.openrouteservice.org/v2/directions/foot-hiking/geojson";
-    const DEMO_FALLBACK_KEY_ENC = "DRAhHw0KTgQuGWRVPAchRzw1IV0tNQBfYyJ0ECQ/KBkqaSsLKkc9HCMrSg8tLyYSOyAiGz9cJVslBCdXYCkzGWMgJF82eTcWISgJVS4vdEZ8PCwTJwQEHCAbF1UqIThbZA8WBQ0hKFUiQEcACwRaWA0NdF0oHh1Z";
-    const DEMO_FALLBACK_SECRET = "hiking-map-demo-fallback-v1";
+    const DEMO_FALLBACK_KEY_ENC = window.RUNTIME_SECRETS?.demoFallbackKeyEnc || "";
+    const DEMO_FALLBACK_SECRET = window.RUNTIME_SECRETS?.demoFallbackSecret || "";
     let demoFallbackNoticeShown = false;
 
     function getDemoFallbackKey() {
+      if (!DEMO_FALLBACK_KEY_ENC || !DEMO_FALLBACK_SECRET) return "";
       try {
         const encrypted = atob(DEMO_FALLBACK_KEY_ENC);
         let out = "";

@@ -2,12 +2,10 @@ name: Build and Deploy
 
 on:
   push:
-    branches:
-      - main
-      - test
-  pull_request:
-    branches:
-      - main
+    branches: [main, test]
+
+permissions:
+  contents: write
 
 env:
   BUILD_DIR: dist
@@ -20,55 +18,39 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set environment variables from secrets
+      - name: Prepare dist
+        env:
+          OR_API_KEY: ${{ secrets.OR_API_KEY }}
         run: |
-          echo "OR_API_KEY=${{ secrets.OR_API_KEY }}"
+          set -euo pipefail
+          mkdir -p "${BUILD_DIR}"
 
-      - name: Build static site - copy ALL files to root level
-        run: |
-          mkdir -p ${{ env.BUILD_DIR }}
-          
-          # Copy HTML with simple relative paths
-          cp index.html ${{ env.BUILD_DIR }}/
-          
-          # Copy CSS (style.css) - always required for styling
-          if [ -f style.css ]; then
-            cp style.css ${{ env.BUILD_DIR }}/
-          fi
-          
-          # Copy all JavaScript files to root level
-          if [ -f scripts/script.js ]; then
-            cp scripts/script.js ${{ env.BUILD_DIR }}/script.js
-          elif [ -f script.js ]; then
-            cp script.js ${{ env.BUILD_DIR }}/script.js
-          fi
-          
-          if [ -f scripts/setup-api-keys.js ]; then
-            cp scripts/setup-api-keys.js ${{ env.BUILD_DIR }}/setup-api-keys.js
-          elif [ -f config/setup-api-keys.js ]; then
-            cp config/setup-api-keys.js ${{ env.BUILD_DIR }}/setup-api-keys.js
-          fi
-          
-          if [ -f scripts/api-keys.js ]; then
-            cp scripts/api-keys.js ${{ env.BUILD_DIR }}/api-keys.js
-          elif [ -f config/api-keys.js ]; then
-            cp config/api-keys.js ${{ env.BUILD_DIR }}/api-keys.js
-          fi
-          
-          if [ -f scripts/config/index.js ]; then
-            cp scripts/config/index.js ${{ env.BUILD_DIR }}/config.js
-          elif [ -f config/index.js ]; then
-            cp config/index.js ${{ env.BUILD_DIR }}/config.js
-          fi
-          
-          # Copy docs (optional, informational)
-          if [ -d docs ]; then
-            mkdir -p ${{ env.BUILD_DIR }}/docs
-            cp docs/API_KEY_SETUP.md ${{ env.BUILD_DIR }}/docs/ 2>/dev/null || true
-            cp docs/SECURITY_GUIDE.md ${{ env.BUILD_DIR }}/docs/ 2>/dev/null || true
-          fi
-          
-          echo "✓ All files copied to root level in ${{ env.BUILD_DIR }}/"
+          # Copy app files (current split structure)
+          cp index.html "${BUILD_DIR}/"
+          cp style.css "${BUILD_DIR}/"
+          cp script.js "${BUILD_DIR}/"
+          cp api-keys.js "${BUILD_DIR}/"
+          cp config.js "${BUILD_DIR}/"
+          cp setup-api-keys.js "${BUILD_DIR}/"
+
+          # Generate runtime secrets file from GitHub secrets.
+          # Keeps API key out of repository source.
+          python3 - <<'PY'
+import base64, os, pathlib
+
+build_dir = pathlib.Path(os.environ['BUILD_DIR'])
+api_key = os.environ.get('OR_API_KEY', '').strip()
+secret = 'hiking-map-demo-fallback-v1'
+
+enc = ''
+if api_key:
+    data = bytes([ord(c) ^ ord(secret[i % len(secret)]) for i, c in enumerate(api_key)])
+    enc = base64.b64encode(data).decode()
+
+content = f"""// Auto-generated during CI deploy\nwindow.RUNTIME_SECRETS = {{\n  demoFallbackKeyEnc: \"{enc}\",\n  demoFallbackSecret: \"{secret if api_key else ''}\"\n}};\n"""
+(build_dir / 'runtime-secrets.js').write_text(content)
+print('runtime-secrets.js generated')
+PY
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
