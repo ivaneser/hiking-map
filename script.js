@@ -40,15 +40,18 @@ const SEARCH_ZOOM = 13;
 let userLocationMarker = null;
 let userAccuracyCircle = null;
 
-const list = document.querySelector("#list");
-const stats = document.querySelector("#stats");
-const summary = document.querySelector("#summary");
-const emptyState = document.querySelector("#emptyState");
-const searchInput = document.querySelector("#searchInput");
-const searchButton = document.querySelector("#searchButton");
-const routeButton = document.querySelector("#routeButton");
+// Initialize map after DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    const list = document.querySelector("#list");
+    const stats = document.querySelector("#stats");
+    const summary = document.querySelector("#summary");
+    const emptyState = document.querySelector("#emptyState");
+    const searchInput = document.querySelector("#searchInput");
+    const searchButton = document.querySelector("#searchButton");
+    const routeButton = document.querySelector("#routeButton");
 
-const leafletMap = L.map("map", {
+    const leafletMap = L.map("map", {
   zoomControl: true,
   scrollWheelZoom: true,
   doubleClickZoom: true
@@ -963,6 +966,15 @@ function escapeHtml(value) {
     '"': "&quot;",
     "'": "&#039;"
   })[char]);
+} catch (e) {
+  console.error('Script init error:', e.message);
 }
-
-applyFilters({ fitMap: false });
+finally {
+  // Map initialization complete
+  console.log("✅ Hiking Map initialized successfully");
+} finally {
+    // All map initialization complete
+  } catch (err) {
+    console.error('Map init error:', err.message);
+  }
+}

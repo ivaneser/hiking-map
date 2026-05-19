@@ -27,23 +27,29 @@
     <!-- Custom Styles -->
     <link rel="stylesheet" href="style.css" />
 
-    <!-- Security Configuration Scripts (load in order!) -->
-    <script type="module" src="api-keys.js"></script>
+    <!-- API Keys Module (type=module, exports to window) -->
+    <script type="module">
+      // Load api-keys.js and expose ApiKeyManager globally
+      import { ApiKeyManager } from './api-keys.js';
+      window.ApiKeyManager = ApiKeyManager;
+    </script>
+    
+    <!-- Config (uses ApiKeyManager after it's exported) -->
     <script type="text/javascript" src="config.js"></script>
   </head>
   <body class="d-flex flex-column min-vh-100">
     
-    <!-- Leaflet JS (MUST LOAD FIRST in body for L to be defined!) -->
+    <!-- Leaflet JS (must load first in body) -->
     <script 
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
       crossorigin=""
     ></script>
 
-    <!-- Leaflet Draw JavaScript -->
+    <!-- Leaflet Draw -->
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-    <!-- Security Configuration Scripts (setup modal after Leaflet loaded) -->
+    <!-- Setup Modal (after Leaflet loaded) -->
     <script src="setup-api-keys.js"></script>
     
     <!-- Main Application Script (after all dependencies!) -->
