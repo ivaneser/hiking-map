@@ -54,21 +54,29 @@ jobs:
           # Generate runtime secrets file from GitHub secrets.
           # Keeps API key out of repository source.
           python3 - <<'PY'
-import base64, os, pathlib
+          import base64, os, pathlib
 
-build_dir = pathlib.Path(os.environ['BUILD_DIR'])
-api_key = os.environ.get('OR_API_KEY', '').strip()
-secret = 'hiking-map-demo-fallback-v1'
+          build_dir = pathlib.Path(os.environ['BUILD_DIR'])
+          api_key = os.environ.get('OR_API_KEY', '').strip()
+          secret = 'hiking-map-demo-fallback-v1'
 
-enc = ''
-if api_key:
-    data = bytes([ord(c) ^ ord(secret[i % len(secret)]) for i, c in enumerate(api_key)])
-    enc = base64.b64encode(data).decode()
+          enc = ''
+          fallback_secret = ''
+          if api_key:
+              data = bytes([ord(c) ^ ord(secret[i % len(secret)]) for i, c in enumerate(api_key)])
+              enc = base64.b64encode(data).decode()
+              fallback_secret = secret
 
-content = f"""// Auto-generated during CI deploy\nwindow.RUNTIME_SECRETS = {{\n  demoFallbackKeyEnc: \"{enc}\",\n  demoFallbackSecret: \"{secret if api_key else ''}\"\n}};\n"""
-(build_dir / 'runtime-secrets.js').write_text(content)
-print('runtime-secrets.js generated')
-PY
+          content = (
+              "// Auto-generated during CI deploy\n"
+              "window.RUNTIME_SECRETS = {\n"
+              f"  demoFallbackKeyEnc: \"{enc}\",\n"
+              f"  demoFallbackSecret: \"{fallback_secret}\"\n"
+              "};\n"
+          )
+          (build_dir / 'runtime-secrets.js').write_text(content)
+          print('runtime-secrets.js generated')
+          PY
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
