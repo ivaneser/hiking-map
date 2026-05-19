@@ -1,86 +1,64 @@
-/**
- * Setup Script for Hiking Map API Keys
- * 
- * Run this script in browser console to configure your API keys securely.
- */
+(function () {
+  function buildModal() {
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;z-index:9999;padding:16px;";
 
-(function() {
-  'use strict';
-
-  // Wait for the app to be ready
-  window.addEventListener('load', async () => {
-    const setupButton = document.createElement('button');
-    setupButton.textContent = '🔐 Configure API Keys';
-    setupButton.style.cssText = `
-      position: fixed;
-      top: 20px; right: 20px;
-      padding: 16px 24px;
-      font-size: 16px;
-      font-weight: bold;
-      background: #3b82f6;
-      color: white;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-      z-index: 10000;
+    const card = document.createElement("div");
+    card.style.cssText = "width:min(520px,100%);background:#fff;border-radius:12px;padding:16px;box-shadow:0 10px 35px rgba(0,0,0,.25);font-family:system-ui,sans-serif;";
+    card.innerHTML = `
+      <h3 style="margin:0 0 10px">Configure OpenRouteService API key</h3>
+      <p style="margin:0 0 12px;color:#475569;font-size:14px">Needed only for route building. Key is encrypted before storing in your browser.</p>
+      <label style="display:block;font-size:13px;margin-bottom:6px">API key</label>
+      <input id="akm-api" type="password" placeholder="Paste API key" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:10px" />
+      <label style="display:block;font-size:13px;margin-bottom:6px">Password (for local encryption)</label>
+      <input id="akm-pass" type="password" placeholder="Choose password" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:10px" />
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button id="akm-cancel" type="button" style="padding:8px 12px;border:1px solid #cbd5e1;background:#fff;border-radius:8px">Cancel</button>
+        <button id="akm-save" type="button" style="padding:8px 12px;border:0;background:#0f766e;color:#fff;border-radius:8px">Save</button>
+      </div>
     `;
 
-    setupButton.addEventListener('click', async () => {
-      try {
-        // Initialize API key manager
-        const apiManager = new ApiKeyManager();
-        
-        // Check current state
-        const existingKeys = await apiManager.loadKeys();
-        const demoMode = window.CONFIG?.demoMode;
-        const hasApiKey = !!(window.CONFIG?.orApiKey);
+    overlay.appendChild(card);
+    return { overlay, card };
+  }
 
-        if (existingKeys || demoMode || hasApiKey) {
-          // Keys already configured
-          setupButton.textContent = '✅ API Keys Configured';
-          alert('API keys are already configured!\n\nCurrent status:\n• Demo mode: ' + (demoMode ? 'Yes' : 'No') + '\n• Has API key: ' + (hasApiKey ? 'Yes' : 'No'));
-        } else {
-          // Need to configure - open setup page
-          apiManager.setupApiKeySetup();
+  window.setupApiKeySetup = function setupApiKeySetup() {
+    const manager = new window.ApiKeyManager();
+    const current = manager.getApiKey();
+    if (current) return Promise.resolve(current);
+
+    return new Promise((resolve) => {
+      const { overlay } = buildModal();
+      document.body.appendChild(overlay);
+
+      const cleanup = () => overlay.remove();
+      const apiInput = overlay.querySelector("#akm-api");
+      const passInput = overlay.querySelector("#akm-pass");
+      const saveBtn = overlay.querySelector("#akm-save");
+      const cancelBtn = overlay.querySelector("#akm-cancel");
+
+      cancelBtn.addEventListener("click", () => {
+        cleanup();
+        resolve("");
+      });
+
+      saveBtn.addEventListener("click", async () => {
+        const apiKey = apiInput.value.trim();
+        const password = passInput.value;
+        if (!apiKey || !password) {
+          alert("Please enter both API key and password");
+          return;
         }
 
-      } catch (error) {
-        console.error('Setup error:', error);
-        alert('Error configuring API keys:\n' + error.message);
-      }
+        const ok = await manager.storeKeys(apiKey, password);
+        if (!ok) {
+          alert(`Failed to save API key. ${manager.lastError || "Please check browser permissions and context."}`);
+          return;
+        }
+
+        cleanup();
+        resolve(apiKey);
+      });
     });
-
-    document.body.appendChild(setupButton);
-
-    // Auto-show setup if no keys exist (only in development)
-    const checkAndAutoSetup = async () => {
-      if (window.location.hostname === 'localhost') {
-        const manager = new ApiKeyManager();
-        const existingKeys = await manager.loadKeys();
-        
-        if (!existingKeys && window.CONFIG?.orApiKey) {
-          // Has API key but no stored keys - should be fine
-        } else if (!existingKeys && !window.CONFIG?.orApiKey) {
-          // No keys at all in dev - maybe suggest setup
-          const alreadyPrompted = localStorage.getItem('hiking_map_setup_prompted');
-          if (!alreadyPrompted) {
-            console.log(
-              '%c🔐 Hiking Map API Key Reminder', 
-              'color: #3b82f6; font-size: 14px;'
-            );
-            console.log(
-              'No API keys stored. Click the "Configure API Keys" button\n' +
-              'or run: window.setupApiKeySetup()'
-            );
-            localStorage.setItem('hiking_map_setup_prompted', 'true');
-          }
-        }
-      }
-    };
-
-    checkAndAutoSetup();
-
-  }, false);
-
+  };
 })();
