@@ -33,13 +33,7 @@
   </head>
   <body class="d-flex flex-column min-vh-100">
     
-    <!-- Security Configuration Scripts (load in order!) -->
-    <script src="setup-api-keys.js"></script>
-    
-    <!-- Main Application Script -->
-    <script src="script.js"></script>
-
-    <!-- Leaflet JavaScript (LOADS FIRST - critical for L to be defined) -->
+    <!-- Leaflet JS (MUST LOAD FIRST in body for L to be defined!) -->
     <script 
       src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
       integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
@@ -49,74 +43,11 @@
     <!-- Leaflet Draw JavaScript -->
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-    <!-- Leaflet Draw Initialization (runs AFTER L is defined) -->
-    <script>
-      if (typeof window !== 'undefined') {
-        const originalMapSetup = typeof window.setupMaps === 'function' ? window.setupMaps : null;
-        
-        if (originalMapSetup) {
-          window.setupMaps = function(map) {
-            var drawnItems = new L.FeatureGroup();
-            
-            var drawControl = new L.Control.Draw({
-              edit: {
-                featureGroup: drawnItems,
-                remove: true
-              },
-              draw: {
-                polygon: {
-                  show: true,
-                  allowIntersection: false
-                },
-                polyline: {
-                  show: false
-                },
-                circlemarker: {
-                  show: false
-                },
-                rectangle: {
-                  show: false
-                }
-              }
-            });
-            
-            setTimeout(() => {
-              if (map) {
-                map.addControl(drawControl);
-                
-                map.on('draw:created', function(e) {
-                  const layer = e.layer;
-                  
-                  if (layer.getBounds && typeof layer.getBounds === 'function') {
-                    const polygonArea = layer.getArea();
-                    
-                    layer.area_m2 = polygonArea.toFixed(2);
-                    layer.properties = {
-                      geometry: layer.toGeoJSON(),
-                      area_m2: polygonArea.toFixed(2)
-                    };
-                    console.log(`Created polygon with area: ${polygonArea.toFixed(2)} m2`);
-                    
-                    let polygonIcon = L.Icon.Default.prototype._getIconUrl();
-                    layer.setIcon(new L.DivIcon({
-                      className: 'custom-polygon',
-                      html: '<div style="background-color: transparent; border-radius: 50%; display: inline-block; width: 12px; height: 12px; background-color: #27ae60;"></div>',
-                      iconSize: [12, 12],
-                      iconAnchor: [6, 6],
-                      popupAnchor: [0, -8]
-                    }));
-                  }
-                });
-                
-                map.on('draw:deleted', function(e) {
-                  console.log('Polygon deleted');
-                });
-              }
-            }, 0);
-          };
-        }
-      }
-    </script>
+    <!-- Security Configuration Scripts (setup modal after Leaflet loaded) -->
+    <script src="setup-api-keys.js"></script>
+    
+    <!-- Main Application Script (after all dependencies!) -->
+    <script src="script.js"></script>
 
   </body>
 </html>
