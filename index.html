@@ -21,8 +21,7 @@
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-    <!-- Leaflet Draw for drawing tools -->
-    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+    <!-- Leaflet Draw for drawing tools (CSS only) -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
 
     <!-- Custom Styles -->
@@ -34,10 +33,23 @@
   </head>
   <body class="d-flex flex-column min-vh-100">
     
+    <!-- Security Configuration Scripts (load in order!) -->
+    <script src="setup-api-keys.js"></script>
+    
     <!-- Main Application Script -->
     <script src="script.js"></script>
-    
-    <!-- Leaflet Draw Initialization -->
+
+    <!-- Leaflet JavaScript (LOADS FIRST - critical for L to be defined) -->
+    <script 
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+
+    <!-- Leaflet Draw JavaScript -->
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+    <!-- Leaflet Draw Initialization (runs AFTER L is defined) -->
     <script>
       if (typeof window !== 'undefined') {
         const originalMapSetup = typeof window.setupMaps === 'function' ? window.setupMaps : null;
@@ -105,16 +117,6 @@
         }
       }
     </script>
-
-    <!-- API Key Setup Modal -->
-    <script src="setup-api-keys.js"></script>
-    
-    <!-- Leaflet JavaScript -->
-    <script 
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
-      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-      crossorigin=""
-    ></script>
 
   </body>
 </html>
