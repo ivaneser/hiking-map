@@ -21,10 +21,17 @@ jobs:
       - name: Validate required secrets
         env:
           OR_API_KEY: ${{ secrets.OR_API_KEY }}
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
         run: |
           set -euo pipefail
           if [ -z "${OR_API_KEY:-}" ]; then
             echo "ERROR: Required secret OR_API_KEY is missing."
+            echo "Set it in repo Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+          if [ -z "${DEPLOY_TOKEN:-}" ]; then
+            echo "ERROR: Required secret DEPLOY_TOKEN is missing."
             echo "Set it in repo Settings -> Secrets and variables -> Actions."
             exit 1
           fi
@@ -66,5 +73,5 @@ PY
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.DEPLOY_TOKEN || secrets.GITHUB_TOKEN }}
+          github_token: ${{ secrets.DEPLOY_TOKEN }}
           publish_dir: ${{ env.BUILD_DIR }}
