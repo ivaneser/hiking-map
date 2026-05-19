@@ -73,8 +73,9 @@ python3 -m http.server 8765 --bind 0.0.0.0
 ### Using Node.js (Development Server)
 
 ```bash
-# With npm dependencies installed
-npm install && npm run serve
+npm install
+npm start
+# Visit: http://localhost:8765
 ```
 
 ## 🛠️ Technical Stack
@@ -130,22 +131,26 @@ const OPENROUTESERVICE_URL = 'https://api.openrouteservice.org/v2/directions/foo
 
 ## 🔧 Development
 
-This is a single-file application! All functionality lives in `index.html`.
+This project is a lightweight static web app with split files.
 
 ### File Structure
 ```
 hiking-map/
-├── index.html              # Main HTML structure (loads Leaflet library)
-├── style.css               # All CSS styling and responsive design
-├── script.js               # Application logic and routing
-└── README.md               # Documentation
+├── index.html              # Main HTML structure + script loading order
+├── style.css               # Styling and responsive layout
+├── script.js               # Main application logic
+├── api-keys.js             # Encrypted API key storage manager
+├── setup-api-keys.js       # API key setup dialog
+├── config.js               # Runtime configuration
+├── runtime-secrets.js      # Placeholder; generated in CI deploy
+├── docs/                   # Project documentation (except this README)
+└── README.md               # Main documentation
 ```
 
 ### Making Changes
-This is a simple single-file application with separated CSS and JS files.
-1. You can edit **any** of the three files (`index.html`, `style.css`, or `script.js`)
-2. Test in your browser
-3. Commit and push to GitHub
+1. Edit relevant files (`index.html`, `style.css`, `script.js`, API key files)
+2. Run tests (`npx playwright test --project=chromium`)
+3. Commit and push
 
 ## 📱 Mobile Support
 
@@ -158,42 +163,27 @@ This is a simple single-file application with separated CSS and JS files.
 
 ### API Key Management 🗝️
 
-The application now supports **encrypted browser storage** for API keys.
+The app supports encrypted browser storage for OpenRouteService API keys.
 
-#### Quick Setup (First Time)
+#### How it works
+- You can enter your own ORS API key in the in-app dialog.
+- The dialog includes a link to generate a key at OpenRouteService.
+- You can continue with a demo fallback key (with warning it may stop working).
+- If routing fails because of an invalid/expired key, the app prompts for key entry again.
 
-1. Open the app in your browser
-2. A floating button "🔐 Configure API Keys" will appear
-3. Click it to open the secure setup page
-4. Follow the prompts to enter your API key and (optionally) set a password
+#### Security model
+- Keys are encrypted in browser storage.
+- Demo fallback key is injected at deploy time via GitHub secrets into `runtime-secrets.js`.
+- Repository source does not contain plaintext ORS key.
 
-**Your API keys are encrypted and stored securely in browser storage.**
+#### Deployment requirements
+Configure these GitHub Actions secrets:
+- `OR_API_KEY`
+- `DEPLOY_TOKEN`
 
-#### Development Mode
-
-For development, the app auto-detects demo mode when:
-- Running on `localhost`
-- No API keys stored
-
-To manually configure during dev:
-```javascript
-window.setupApiKeySetup()
-// Follow the setup prompts
-```
-
-#### Security Features
-- **Encrypted Storage:** Your API keys are AES-GCM encrypted in your browser
-- **Optional Password Protection:** Set a password for extra security
-- **Never Hardcoded:** Keys are never committed to source code or shared
-- **Private by Design:** Keys only stored in YOUR browser, never sent anywhere
-
-#### For Developers & Production Deployments
-
-See [API Key Setup Guide](docs/API_KEY_SETUP.md) for:
-- GitHub Actions workflow for CI/CD
-- GitHub Secrets configuration  
-- Backend proxy patterns
-- Advanced security options
+See:
+- [docs/API_KEY_SETUP.md](docs/API_KEY_SETUP.md)
+- [docs/SECURITY_GUIDE.md](docs/SECURITY_GUIDE.md)
 
 ## 🌍 Data Sources
 
