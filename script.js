@@ -312,10 +312,17 @@
 	        fillOpacity: 0.15
 	      }).addTo(leafletMap);
 
-	      userLocationMarker.bindTooltip("Your location", {
-	        direction: "top",
-	        offset: [0, -10]
-	      });
+	      userLocationMarker.bindTooltip(
+	        `<div class="geo-tooltip-tags">
+	          <span class="geo-tag geo-tag-primary">📍 Your location</span>
+	          <span class="geo-tag">±${Math.round(accuracy)} m</span>
+	        </div>`,
+	        {
+	          direction: "top",
+	          offset: [0, -12],
+	          sticky: false
+	        }
+	      );
 
 	      leafletMap.flyTo([lat, lon], 14);
 	    },
@@ -758,8 +765,8 @@
 		    `<strong>${title}</strong>${subtitle ? `<br>${subtitle}` : ""}`,
 		    {
 		      direction: "top",
-		      offset: [0, -10],
-		      sticky: true
+		      offset: [0, -12],
+		      sticky: false
 		    }
 		  )
 		  
