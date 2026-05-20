@@ -255,7 +255,7 @@ window.CONFIG.showApiKeySetup();
 2. Script loaded: `typeof window.ApiKeyManager !== 'undefined'`
 3. Try manual config call:
    ```javascript
-   window.open('/config/api-keys.js?setup=true', '_blank');
+   window.setupApiKeySetup();
    ```
 
 ---

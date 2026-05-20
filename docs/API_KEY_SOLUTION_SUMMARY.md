@@ -19,9 +19,9 @@ This solution provides a **user-friendly, secure** way to manage OpenRouteServic
 ### Core Functionality
 | File | Purpose | Size |
 |------|---------|------|
-| `config/api-keys.js` | Encrypted storage module (AES-GCM + PBKDF2) | 7.4KB |
-| `config/index.js` | Configuration loader with demo mode fallback | 3.4KB |
-| `scripts/setup-api-keys.js` | Auto-setup button (legacy, can be kept) | 2.8KB |
+| `api-keys.js` | Encrypted storage module (AES-GCM + PBKDF2) | 3.8KB |
+| `config.js` | Configuration loader with demo mode fallback | 0.4KB |
+| `setup-api-keys.js` | Setup modal helper | 3.6KB |
 
 ### Documentation
 | File | Purpose |

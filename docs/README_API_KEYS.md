@@ -10,9 +10,9 @@ This document explains the complete solution for securely managing API keys in H
 
 | File | Purpose |
 |------|---------|
-| `config/api-keys.js` | Secure encrypted API key storage using Web Crypto API (AES-GCM) |
-| `config/index.js` | Configuration loader for browser and build-time tokens |
-| `scripts/setup-api-keys.js` | Auto-installs floating setup button in browser |
+| `api-keys.js` | Secure encrypted API key storage using Web Crypto API (AES-GCM) |
+| `config.js` | Configuration loader for browser and runtime settings |
+| `setup-api-keys.js` | API key setup modal/loader |
 | `.github/workflows/build-and-deploy.yml` | CI/CD workflow with GitHub Actions secrets |
 | `.env.example` | Environment variable template for local development |
 | `docs/API_KEY_SETUP.md` | User-facing setup guide |
@@ -191,11 +191,9 @@ console.log(window.CONFIG);
 
 ```
 hiking-map/
-├── config/
-│   ├── api-keys.js          # Encrypted storage module
-│   └── index.js             # Configuration loader
-├── scripts/
-│   └── setup-api-keys.js    # Auto-setup button
+├── api-keys.js              # Encrypted storage module
+├── config.js                # Configuration loader
+├── setup-api-keys.js        # API key setup modal/loader
 ├── docs/
 │   ├── API_KEY_SETUP.md     # User setup guide
 │   └── SECURITY_GUIDE.md    # Security documentation

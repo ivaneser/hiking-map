@@ -50,9 +50,9 @@ This solution provides a **secure, user-friendly** way to manage OpenRouteServic
 ### Core Functionality (3 files, ~13KB total)
 | File | Purpose | Size |
 |------|---------|------|
-| `config/api-keys.js` | AES-GCM encrypted storage module | 7.4KB |
-| `config/index.js` | Configuration loader + demo mode fallback | 3.4KB |
-| `scripts/setup-api-keys.js` | Auto-setup button (optional, legacy) | 2.8KB |
+| `api-keys.js` | AES-GCM encrypted storage module | 3.8KB |
+| `config.js` | Configuration loader + demo mode fallback | 0.4KB |
+| `setup-api-keys.js` | API key setup modal helper | 3.6KB |
 
 ### Documentation (6 files, ~26KB total)
 | File | Purpose | Size |
@@ -335,7 +335,7 @@ const CONFIG = { orApiKey: '', overpassApiUrl: '...' };
 console.log(window.CONFIG);
 
 // If empty, configure via popup:
-window.open('/config/api-keys.js?setup=true', '_blank');
+window.setupApiKeySetup();
 ```
 
 ### Issue 2: "Failed to Decrypt" Error
