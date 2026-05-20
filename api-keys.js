@@ -1,6 +1,7 @@
 (function () {
   const STORAGE_KEY = "hiking_map_api_key_encrypted";
   const SESSION_KEY = "hiking_map_api_key_session";
+  const PERSISTENT_KEY = "hiking_map_api_key_persistent";
 
   function toBase64(bytes) {
     const binary = String.fromCharCode(...bytes);
@@ -38,19 +39,21 @@
     }
 
     getApiKey() {
-      return sessionStorage.getItem(SESSION_KEY) || "";
+      return sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(PERSISTENT_KEY) || "";
     }
 
     setSessionKey(apiKey) {
       if (!apiKey) {
         sessionStorage.removeItem(SESSION_KEY);
+        localStorage.removeItem(PERSISTENT_KEY);
         return;
       }
       sessionStorage.setItem(SESSION_KEY, apiKey);
+      localStorage.setItem(PERSISTENT_KEY, apiKey);
     }
 
     hasStoredKey() {
-      return !!localStorage.getItem(STORAGE_KEY);
+      return !!localStorage.getItem(STORAGE_KEY) || !!localStorage.getItem(PERSISTENT_KEY);
     }
 
     async storeKeys(apiKey, password) {
@@ -60,9 +63,14 @@
         return false;
       }
 
-      if (!window.isSecureContext || !window.crypto || !window.crypto.subtle) {
-        this.lastError = "Secure context required. Open app via https:// or http://localhost (not http://0.0.0.0).";
-        return false;
+      const canEncrypt = !!(window.isSecureContext && window.crypto && window.crypto.subtle);
+
+      if (!canEncrypt) {
+        // Fallback for non-secure local/dev contexts: keep key persistently on this browser.
+        // (Plaintext localStorage fallback)
+        localStorage.setItem(PERSISTENT_KEY, apiKey);
+        sessionStorage.setItem(SESSION_KEY, apiKey);
+        return true;
       }
 
       try {
@@ -112,13 +120,15 @@
 
     loadKeys() {
       return {
-        hasStoredEncryptedKey: this.hasStoredKey(),
-        hasSessionKey: !!this.getApiKey()
+        hasStoredEncryptedKey: !!localStorage.getItem(STORAGE_KEY),
+        hasStoredPersistentKey: !!localStorage.getItem(PERSISTENT_KEY),
+        hasSessionKey: !!sessionStorage.getItem(SESSION_KEY)
       };
     }
 
     clearKeys() {
       localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(PERSISTENT_KEY);
       sessionStorage.removeItem(SESSION_KEY);
     }
 
