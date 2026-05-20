@@ -8,9 +8,7 @@
     card.innerHTML = `
       <h3 style="margin:0 0 10px">Configure OpenRouteService API key</h3>
       <p style="margin:0 0 12px;color:#475569;font-size:14px">
-        Needed only for route building. Key is encrypted before storing in your browser.
-        <br>
-        Get a free API key from
+        Needed only for route building. Key is encrypted before storing in your browser. Get a free API key from
         <a href="https://openrouteservice.org/dev/#/signup" target="_blank" rel="noopener noreferrer">OpenRouteService</a>.
       </p>
       <label style="display:block;font-size:13px;margin-bottom:6px">API key</label>
