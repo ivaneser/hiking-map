@@ -42,21 +42,25 @@
       return sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(PERSISTENT_KEY) || "";
     }
 
-    setSessionKey(apiKey) {
+    setSessionKey(apiKey, persist = true) {
       if (!apiKey) {
         sessionStorage.removeItem(SESSION_KEY);
         localStorage.removeItem(PERSISTENT_KEY);
         return;
       }
       sessionStorage.setItem(SESSION_KEY, apiKey);
-      localStorage.setItem(PERSISTENT_KEY, apiKey);
+      if (persist) {
+        localStorage.setItem(PERSISTENT_KEY, apiKey);
+      } else {
+        localStorage.removeItem(PERSISTENT_KEY);
+      }
     }
 
     hasStoredKey() {
       return !!localStorage.getItem(STORAGE_KEY) || !!localStorage.getItem(PERSISTENT_KEY);
     }
 
-    async storeKeys(apiKey, password) {
+    async storeKeys(apiKey, password, persist = true) {
       this.lastError = "";
       if (!apiKey || !password) {
         this.lastError = "Missing API key or password";
@@ -66,10 +70,13 @@
       const canEncrypt = !!(window.isSecureContext && window.crypto && window.crypto.subtle);
 
       if (!canEncrypt) {
-        // Fallback for non-secure local/dev contexts: keep key persistently on this browser.
-        // (Plaintext localStorage fallback)
-        localStorage.setItem(PERSISTENT_KEY, apiKey);
+        // Fallback for non-secure local/dev contexts.
         sessionStorage.setItem(SESSION_KEY, apiKey);
+        if (persist) {
+          localStorage.setItem(PERSISTENT_KEY, apiKey);
+        } else {
+          localStorage.removeItem(PERSISTENT_KEY);
+        }
         return true;
       }
 
@@ -90,7 +97,7 @@
           })
         );
 
-        this.setSessionKey(apiKey);
+        this.setSessionKey(apiKey, persist);
         return true;
       } catch (err) {
         this.lastError = err?.message || "Encryption/storage failed";
