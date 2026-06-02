@@ -96,6 +96,14 @@
     const searchInput = document.querySelector("#searchInput");
     const searchButton = document.querySelector("#searchButton");
     const routeButton = document.querySelector("#routeButton");
+    const mapPanel = document.querySelector(".map-panel");
+
+	function setSummaryMessage(message, isError = false) {
+	  if (!summary) return;
+	  summary.classList.toggle("is-error", Boolean(isError));
+	  summary.textContent = message;
+	}
+
 	const leafletMap = L.map("map", {
 	  zoomControl: true,
 	  scrollWheelZoom: true,
@@ -235,8 +243,9 @@
 
 	  render();
 
-	  summary.textContent =
-	    `${state.routeStops.length} route stop(s) selected (including custom points).`;
+	  setSummaryMessage(
+	    `${state.routeStops.length} route stop(s) selected (including custom points).`
+	  );
 	});
 	
     function getCoordinates(item) {
@@ -312,17 +321,10 @@
 	        fillOpacity: 0.15
 	      }).addTo(leafletMap);
 
-	      userLocationMarker.bindTooltip(
-	        `<div class="geo-tooltip-tags">
-	          <span class="geo-tag geo-tag-primary">📍 Your location</span>
-	          <span class="geo-tag">±${Math.round(accuracy)} m</span>
-	        </div>`,
-	        {
-	          direction: "top",
-	          offset: [0, -12],
-	          sticky: false
-	        }
-	      );
+	      userLocationMarker.bindTooltip("Your location", {
+	        direction: "top",
+	        offset: [0, -10]
+	      });
 
 	      leafletMap.flyTo([lat, lon], 14);
 	    },
@@ -380,7 +382,7 @@
 	  fitMapToFiltered();
 	  updateGoogleMapsButtonVisibility?.();
 
-	  summary.textContent = "Route loaded successfully";
+	  setSummaryMessage("Route loaded successfully");
 	  render();
 	}
 	
@@ -433,8 +435,9 @@
 	  updateRouteButtonVisibility();
 	  state.selectedId = state.all[0]?.id || null;
 	  //clearRouteSelection();
-	  summary.textContent =
-	    `${state.all.length} plotted objects from ${sourceName}`;
+	  setSummaryMessage(
+	    `${state.all.length} plotted objects from ${sourceName}`
+	  );
 	  applyFilters({ fitMap });
 	}
 
@@ -497,7 +500,7 @@
 
 	  const bbox = getViewportBbox();
 
-      summary.textContent = "Searching current map viewport";
+      setSummaryMessage("Searching current map viewport");
 	  searchButton.disabled = true;
 
       try {
@@ -523,7 +526,7 @@
         state.all = [];
 		updateRouteButtonVisibility();
         applyFilters({ fitMap: false });
-        summary.textContent = "Search failed, try again."; //error.message ||
+        setSummaryMessage("Search failed, try again.", true); //error.message ||
 	  } finally {
 		  searchButton.disabled = false;
 		  searchButton.classList.remove("loading");
@@ -758,15 +761,16 @@
 	        }
 
 	        selectSpot(spot.id, {
-				scrollList: false	
+	        focusMap: true,
+	        scrollList: false
 	        });
 	      })
 		  .bindTooltip(
 		    `<strong>${title}</strong>${subtitle ? `<br>${subtitle}` : ""}`,
 		    {
 		      direction: "top",
-		      offset: [0, -12],
-		      sticky: false
+		      offset: [0, -10],
+		      sticky: true
 		    }
 		  )
 		  
@@ -828,9 +832,9 @@
       render();
       //document.querySelector(".spot.selected")?.scrollIntoView({ block: "nearest" });
       const count = state.routeStops.length;
-      summary.textContent = count
+      setSummaryMessage(count
         ? `${count} route stop${count === 1 ? "" : "s"} selected. Click the button again to build the route.`
-        : "No route stops selected. Click map markers to add stops.";
+        : "Route selection mode enabled. Click your stops.");
     }
 
     async function fetchHikingRoute(points, allowRetry = true) {
@@ -895,8 +899,7 @@
 	    routeButton.classList.add("active");
 	    //routeButton.textContent = "Build Route";
 
-	    summary.textContent =
-	      "Route selection mode enabled. Click your stops.";
+	    setSummaryMessage("Route selection mode enabled. Click your stops.");
 
 	    render();
 
@@ -915,7 +918,7 @@
 	    routeButton.classList.remove("active");
 	    //routeButton.textContent = "Build Hiking Loop";
 
-	    summary.textContent = "Route selection cancelled.";
+	    setSummaryMessage("Route selection cancelled.");
 
 	    state.routeStops = [];
 
@@ -927,8 +930,9 @@
 	  routeButton.disabled = true;
 	  //routeButton.textContent = "Routing";
 
-	  summary.textContent =
-	    `Building hiking loop through ${selectedStops.length} selected stops`;
+	  setSummaryMessage(
+	    `Building hiking loop through ${selectedStops.length} selected stops`
+	  );
 
 	  try {
 
@@ -956,17 +960,20 @@
 	    //routeButton.textContent = "Build Hiking Loop";
 		updateGpxButtonVisibility();
 
-	    summary.textContent =
+	    setSummaryMessage(
 	      `Hiking loop built through ${selectedStops.length} selected stops${
 	        state.routeSummary
 	          ? ` (${formatRouteSummary(state.routeSummary).replace("Route: ", "")})`
 	          : ""
-	      }`;
+	      }`
+	    );
 
 	  } catch (error) {
 
-	    summary.textContent =
-	      error.message || "Could not build hiking loop";
+	    setSummaryMessage(
+	      error.message || "Could not build hiking loop",
+	      true
+	    );
 
 	  } finally {
 
@@ -1099,7 +1106,7 @@
 		const tagLine = formatTags(spot.tags);
         button.type = "button";
         button.className = `spot${spot.id === state.selectedId ? " selected" : ""}`;
-        button.addEventListener("click", () => selectSpot(spot.id, { scrollList: false }));
+        button.addEventListener("click", () => selectSpot(spot.id, { scrollList: false, focusMap: true, scrollMap: true }));
 		button.innerHTML = `
 		  <div style="display:flex; justify-content:space-between; gap:10px; align-items:start;">
     
@@ -1145,17 +1152,26 @@
     function selectSpot(id, options = {}) {
       const shouldScrollList = options.scrollList ?? true;
       const shouldOpenPopup = options.openPopup ?? true;
+      const shouldFocusMap = options.focusMap ?? false;
+      const shouldScrollMap = options.scrollMap ?? false;
       state.selectedId = id;
+      const selectedSpot = state.all.find((spot) => spot.id === id);
       render();
-      const selectedSpot = state.filtered.find((spot) => spot.id === id);
+      if (selectedSpot && shouldFocusMap) {
+        leafletMap.flyTo([selectedSpot.lat, selectedSpot.lon], leafletMap.getZoom(), {
+          animate: true,
+          duration: 0.55
+        });
+      }
       const selectedMarker = state.markers.get(id);
-      if (selectedSpot && selectedMarker) {
-        //const targetZoom = Math.max(leafletMap.getZoom(), 15);
-        if (shouldOpenPopup) {
-          //leafletMap.once("moveend", () => selectedMarker.openPopup());
+      if (selectedSpot && selectedMarker && shouldOpenPopup) {
+        //leafletMap.once("moveend", () => selectedMarker.openPopup());
 		  selectedMarker.openPopup();
-        }
-        //leafletMap.setView([selectedSpot.lat, selectedSpot.lon], targetZoom, { animate: true });
+      }
+      if (shouldScrollMap && mapPanel && window.matchMedia("(max-width: 920px)").matches) {
+        requestAnimationFrame(() => {
+          mapPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
       }
       if (shouldScrollList) {
         document.querySelector(".spot.selected")?.scrollIntoView({ block: "nearest" });
