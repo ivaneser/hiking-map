@@ -14,10 +14,6 @@
       <input id="akm-api" type="password" placeholder="Paste API key" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:10px" />
       <label style="display:block;font-size:13px;margin-bottom:6px">Password (for local encryption)</label>
       <input id="akm-pass" type="password" placeholder="Choose password" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:8px" />
-      <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin:0 0 10px;color:#334155">
-        <input id="akm-remember" type="checkbox" checked />
-        Remember API key on this device/browser
-      </label>
       <p style="margin:0 0 10px;color:#b45309;font-size:13px">
         You can continue with the built-in demo key, but it may stop working at any time.
       </p>
@@ -47,7 +43,6 @@
       const saveBtn = overlay.querySelector("#akm-save");
       const cancelBtn = overlay.querySelector("#akm-cancel");
       const demoBtn = overlay.querySelector("#akm-demo");
-      const rememberInput = overlay.querySelector("#akm-remember");
 
       cancelBtn.addEventListener("click", () => {
         cleanup();
@@ -67,7 +62,7 @@
           return;
         }
 
-        const ok = await manager.storeKeys(apiKey, password, !!rememberInput?.checked);
+        const ok = await manager.storeKeys(apiKey, password);
         if (!ok) {
           alert(`Failed to save API key. ${manager.lastError || "Please check browser permissions and context."}`);
           return;

@@ -42,6 +42,23 @@
       return "";
     }
 
+    function isOrsAuthError(error) {
+      const status = error?.status ?? error?.response?.status ?? error?.responseStatus;
+      const message = [
+        error?.message,
+        error?.response?.error?.message,
+        error?.response?.message,
+        error?.response?.error?.details,
+        error?.response?.error?.code
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      if (status === 401 || status === 403) return true;
+      return /api key|invalid.*key|key.*invalid|unauthori[sz]ed|forbidden|authentication|auth failed|access denied/.test(message);
+    }
+
     /*const typeConfig = {
       viewpoint: { label: "Viewpoints", color: "#475569" },
       attraction: { label: "Attractions", color: "#db2777" },
@@ -865,7 +882,11 @@
 
         const data = await response.json();
         if (!response.ok || !data.features?.[0]?.geometry?.coordinates) {
-          throw new Error(data.error?.message || data.message || `OpenRouteService returned ${response.status}`);
+          const message = data.error?.message || data.message || `OpenRouteService returned ${response.status}`;
+          const routeError = new Error(message);
+          routeError.status = response.status;
+          routeError.response = data;
+          throw routeError;
         }
 
         const feature = data.features[0];
@@ -874,7 +895,7 @@
           summary: feature.properties?.summary || null
         };
       } catch (error) {
-        if (allowRetry && typeof window.setupApiKeySetup === "function") {
+        if (allowRetry && typeof window.setupApiKeySetup === "function" && isOrsAuthError(error)) {
           const manager = window.ApiKeyManager ? new window.ApiKeyManager() : null;
           manager?.clearKeys?.();
 
