@@ -213,6 +213,14 @@
 
 	  return 2 * R * Math.asin(Math.sqrt(x));
 	}
+
+	function nearestSpotThresholdForZoom(zoom) {
+	  // Lower zoom means less precise clicks, so reuse nearby points more aggressively.
+	  // Higher zoom means precise routing, so allow custom points closer to existing ones.
+	  if (zoom <= 13) return 100;
+	  if (zoom >= 18) return 15;
+	  return Math.round(100 - ((zoom - 13) * 17)); // 14:83m, 15:66m, 16:49m, 17:32m
+	}
 	
 	leafletMap.on("click", (e) => {
 
@@ -222,8 +230,9 @@
 	  const lon = e.latlng.lng;   // IMPORTANT: Leaflet uses lng, your app uses lon
 
 	  // optional: avoid duplicates near existing spots
-	  const latDelta = 100 / 111320;
-	  const lonDelta = 100 / (111320 * Math.cos(lat * Math.PI / 180));
+	  const nearestSpotThresholdMeters = nearestSpotThresholdForZoom(leafletMap.getZoom());
+	  const latDelta = nearestSpotThresholdMeters / 111320;
+	  const lonDelta = nearestSpotThresholdMeters / (111320 * Math.cos(lat * Math.PI / 180));
 
 	  const candidates = state.all.filter(s =>
 	    Math.abs(s.lat - lat) < latDelta &&
@@ -231,7 +240,7 @@
 	  );
 
 	  const existing = candidates.find(s =>
-	    distanceMeters({ lat, lon }, s) < 100
+	    distanceMeters({ lat, lon }, s) < nearestSpotThresholdMeters
 	  );
 
 	  if (existing) {
